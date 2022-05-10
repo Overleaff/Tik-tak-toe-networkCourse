@@ -9,16 +9,6 @@
 
 int player_count = 0;
 pthread_mutex_t mutexcount;
-char hld[] = "HLD";
-char trn[] = "TRN";
-char udp[] = "UDP";
-char cnt[] = "CNT";
-char srt[] = "SRT";
-char wat[] = "WAT";
-char inv[] = "INV";
-char win[] = "WIN";
-char lse[] = "LSR";
-char drw[] = "DRW";
 
 void error(const char *msg)
 {
@@ -26,18 +16,18 @@ void error(const char *msg)
     pthread_exit(NULL);
 }
 
-void write_client_int(int cli_sockfd, int msg)
-{
-    int n = write(cli_sockfd, &msg, sizeof(int));
-    if (n < 0)
-        error("ERROR writing int to client socket");
-}
-
 void write_client_msg(int cli_sockfd, char *msg)
 {
     int n = write(cli_sockfd, msg, strlen(msg));
     if (n < 0)
         error("ERROR writing msg to client socket");
+}
+
+void write_client_int(int cli_sockfd, int msg)
+{
+    int n = write(cli_sockfd, &msg, sizeof(int));
+    if (n < 0)
+        error("ERROR writing int to client socket");
 }
 
 void write_clients_msg(int *cli_sockfd, char *msg)
@@ -69,9 +59,7 @@ int setup_listener(int portno)
     if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
         error("ERROR binding listener socket.");
 
-#ifdef DEBUG
     printf("[DEBUG] Listener set.\n");
-#endif
 
     return sockfd;
 }
@@ -93,9 +81,7 @@ void get_clients(int lis_sockfd, int *cli_sockfd)
     socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
 
-#ifdef DEBUG
     printf("[DEBUG] Listening for clients...\n");
-#endif
 
     int num_conn = 0;
     while (num_conn < 2)
@@ -111,15 +97,11 @@ void get_clients(int lis_sockfd, int *cli_sockfd)
         if (cli_sockfd[num_conn] < 0)
             error("ERROR accepting a connection from a client.");
 
-#ifdef DEBUG
         printf("[DEBUG] Accepted connection from client %d\n", num_conn);
-#endif
 
         write(cli_sockfd[num_conn], &num_conn, sizeof(int));
 
-#ifdef DEBUG
         printf("[DEBUG] Sent client %d it's ID.\n", num_conn);
-#endif
 
         pthread_mutex_lock(&mutexcount);
         player_count++;
@@ -128,11 +110,9 @@ void get_clients(int lis_sockfd, int *cli_sockfd)
 
         if (num_conn == 0)
         {
-            write_client_msg(cli_sockfd[0], hld);
+            write_client_msg(cli_sockfd[0], "HLD");
 
-#ifdef DEBUG
             printf("[DEBUG] Told client 0 to hold.\n");
-#endif
         }
 
         num_conn++;
@@ -141,11 +121,10 @@ void get_clients(int lis_sockfd, int *cli_sockfd)
 
 int get_player_move(int cli_sockfd)
 {
-#ifdef DEBUG
-    printf("[DEBUG] Getting player move...\n");
-#endif
 
-    write_client_msg(cli_sockfd, trn);
+    printf("[DEBUG] Getting player move...\n");
+
+    write_client_msg(cli_sockfd, "TRN");
 
     return recv_int(cli_sockfd);
 }
@@ -155,17 +134,13 @@ int check_move(char board[][3], int move, int player_id)
     if ((move == 9) || (board[move / 3][move % 3] == ' '))
     {
 
-#ifdef DEBUG
         printf("[DEBUG] Player %d's move was valid.\n", player_id);
-#endif
 
         return 1;
     }
     else
     {
-#ifdef DEBUG
         printf("[DEBUG] Player %d's move was invalid.\n", player_id);
-#endif
 
         return 0;
     }
@@ -175,9 +150,7 @@ void update_board(char board[][3], int move, int player_id)
 {
     board[move / 3][move % 3] = player_id ? 'X' : 'O';
 
-#ifdef DEBUG
     printf("[DEBUG] Board updated.\n");
-#endif
 }
 
 void draw_board(char board[][3])
@@ -191,75 +164,65 @@ void draw_board(char board[][3])
 
 void send_update(int *cli_sockfd, int move, int player_id)
 {
-#ifdef DEBUG
-    printf("[DEBUG] Sending update...\n");
-#endif
 
-    write_clients_msg(cli_sockfd, udp);
+    printf("[DEBUG] Sending update...\n");
+
+    write_clients_msg(cli_sockfd, "UPD");
 
     write_clients_int(cli_sockfd, player_id);
 
     write_clients_int(cli_sockfd, move);
 
-#ifdef DEBUG
     printf("[DEBUG] Update sent.\n");
-#endif
 }
 
 void send_player_count(int cli_sockfd)
 {
-    write_client_msg(cli_sockfd, cnt);
+    write_client_msg(cli_sockfd, "CNT");
     write_client_int(cli_sockfd, player_count);
 
-#ifdef DEBUG
     printf("[DEBUG] Player Count Sent.\n");
-#endif
 }
 
 int check_board(char board[][3], int last_move)
 {
-#ifdef DEBUG
+
     printf("[DEBUG] Checking for a winner...\n");
-#endif
 
     int row = last_move / 3;
     int col = last_move % 3;
 
     if (board[row][0] == board[row][1] && board[row][1] == board[row][2])
     {
-#ifdef DEBUG
+
         printf("[DEBUG] Win by row %d.\n", row);
-#endif
+
         return 1;
     }
     else if (board[0][col] == board[1][col] && board[1][col] == board[2][col])
     {
-#ifdef DEBUG
+
         printf("[DEBUG] Win by column %d.\n", col);
-#endif
+
         return 1;
     }
     else if (!(last_move % 2))
     {
         if ((last_move == 0 || last_move == 4 || last_move == 8) && (board[1][1] == board[0][0] && board[1][1] == board[2][2]))
         {
-#ifdef DEBUG
             printf("[DEBUG] Win by backslash diagonal.\n");
-#endif
+
             return 1;
         }
         if ((last_move == 2 || last_move == 4 || last_move == 6) && (board[1][1] == board[0][2] && board[1][1] == board[2][0]))
         {
-#ifdef DEBUG
             printf("[DEBUG] Win by frontslash diagonal.\n");
-#endif
+
             return 1;
         }
     }
 
-#ifdef DEBUG
     printf("[DEBUG] No winner, yet.\n");
-#endif
 
     return 0;
 }
@@ -273,11 +236,9 @@ void *run_game(void *thread_data)
 
     printf("Game on!\n");
 
-    write_clients_msg(cli_sockfd, srt);
+    write_clients_msg(cli_sockfd, "SRT");
 
-#ifdef DEBUG
     printf("[DEBUG] Sent start message.\n");
-#endif
 
     draw_board(board);
 
@@ -289,7 +250,7 @@ void *run_game(void *thread_data)
     {
 
         if (prev_player_turn != player_turn)
-            write_client_msg(cli_sockfd[(player_turn + 1) % 2], wat);
+            write_client_msg(cli_sockfd[(player_turn + 1) % 2], "WAT");
 
         int valid = 0;
         int move = 0;
@@ -304,7 +265,7 @@ void *run_game(void *thread_data)
             if (!valid)
             {
                 printf("Move was invalid. Let's try this again...\n");
-                write_client_msg(cli_sockfd[player_turn], inv);
+                write_client_msg(cli_sockfd[player_turn], "INV");
             }
         }
 
@@ -329,14 +290,14 @@ void *run_game(void *thread_data)
 
             if (game_over == 1)
             {
-                write_client_msg(cli_sockfd[player_turn], win);
-                write_client_msg(cli_sockfd[(player_turn + 1) % 2], lse);
+                write_client_msg(cli_sockfd[player_turn], "WIN");
+                write_client_msg(cli_sockfd[(player_turn + 1) % 2], "LSE");
                 printf("Player %d won.\n", player_turn);
             }
             else if (turn_count == 8)
             {
                 printf("Draw.\n");
-                write_clients_msg(cli_sockfd, drw);
+                write_clients_msg(cli_sockfd, "DRW");
                 game_over = 1;
             }
 
@@ -383,9 +344,7 @@ int main(int argc, char *argv[])
 
             get_clients(lis_sockfd, cli_sockfd);
 
-#ifdef DEBUG
             printf("[DEBUG] Starting new game thread...\n");
-#endif
 
             pthread_t thread;
             int result = pthread_create(&thread, NULL, run_game, (void *)cli_sockfd);
