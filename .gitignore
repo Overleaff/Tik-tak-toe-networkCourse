@@ -1,3 +1,5 @@
 .vscode/
 *client
 *server
+client.dSYM/Contents/Info.plist
+server.dSYM/Contents/Info.plist
