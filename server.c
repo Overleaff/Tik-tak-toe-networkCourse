@@ -1,365 +1,388 @@
-#include <pthread.h>
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
+#include <sys/wait.h>
+#include <errno.h>
+#include <arpa/inet.h>
+#include <ctype.h>
+#include "protocol.h"
+#include "check_send_recv.h"
+#include <pthread.h>
+#define PORT 5500
+#include "singLL.h"
 
-int player_count = 0;
-pthread_mutex_t mutexcount;
-
-void error(const char *msg)
+char *getCommand(char *msg)
 {
-    perror(msg);
-    pthread_exit(NULL);
-}
-
-void write_client_msg(int cli_sockfd, char *msg)
-{
-    int n = write(cli_sockfd, msg, strlen(msg));
-    if (n < 0)
-        error("ERROR writing msg to client socket");
-}
-
-void write_client_int(int cli_sockfd, int msg)
-{
-    int n = write(cli_sockfd, &msg, sizeof(int));
-    if (n < 0)
-        error("ERROR writing int to client socket");
-}
-
-void write_clients_msg(int *cli_sockfd, char *msg)
-{
-    write_client_msg(cli_sockfd[0], msg);
-    write_client_msg(cli_sockfd[1], msg);
-}
-
-void write_clients_int(int *cli_sockfd, int msg)
-{
-    write_client_int(cli_sockfd[0], msg);
-    write_client_int(cli_sockfd[1], msg);
-}
-
-int setup_listener(int portno)
-{
-    int sockfd;
-    struct sockaddr_in serv_addr;
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-        error("ERROR opening listener socket.");
-
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(portno);
-
-    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-        error("ERROR binding listener socket.");
-
-    printf("[DEBUG] Listener set.\n");
-
-    return sockfd;
-}
-int recv_int(int cli_sockfd)
-{
-    int msg = 0;
-    int n = read(cli_sockfd, &msg, sizeof(int));
-
-    if (n < 0 || n != sizeof(int))
-        return -1;
-
-    printf("[DEBUG] Received int: %d\n", msg);
-
-    return msg;
-}
-
-void get_clients(int lis_sockfd, int *cli_sockfd)
-{
-    socklen_t clilen;
-    struct sockaddr_in serv_addr, cli_addr;
-
-    printf("[DEBUG] Listening for clients...\n");
-
-    int num_conn = 0;
-    while (num_conn < 2)
+    char command[20];
+    int count = 0;
+    for (int i = 0; msg[i] != '\0'; i++)
     {
-        listen(lis_sockfd, 253 - player_count);
-
-        memset(&cli_addr, 0, sizeof(cli_addr));
-
-        clilen = sizeof(cli_addr);
-
-        cli_sockfd[num_conn] = accept(lis_sockfd, (struct sockaddr *)&cli_addr, &clilen);
-
-        if (cli_sockfd[num_conn] < 0)
-            error("ERROR accepting a connection from a client.");
-
-        printf("[DEBUG] Accepted connection from client %d\n", num_conn);
-
-        write(cli_sockfd[num_conn], &num_conn, sizeof(int));
-
-        printf("[DEBUG] Sent client %d it's ID.\n", num_conn);
-
-        pthread_mutex_lock(&mutexcount);
-        player_count++;
-        printf("Number of players is now %d.\n", player_count);
-        pthread_mutex_unlock(&mutexcount);
-
-        if (num_conn == 0)
+        if (msg[i] == '|')
         {
-            write_client_msg(cli_sockfd[0], "HLD");
-
-            printf("[DEBUG] Told client 0 to hold.\n");
+            break;
         }
-
-        num_conn++;
+        command[i] = msg[i];
+        count = i;
     }
+    command[count] = '\0';
+    return command;
 }
 
-int get_player_move(int cli_sockfd)
+int checkRecvMsg(char buffer[1000], int newSocket, char *ip)
 {
+    int byte_sent, byte_recv;
+    int retry;
 
-    printf("[DEBUG] Getting player move...\n");
-
-    write_client_msg(cli_sockfd, "TRN");
-
-    return recv_int(cli_sockfd);
-}
-
-int check_move(char board[][3], int move, int player_id)
-{
-    if ((move == 9) || (board[move / 3][move % 3] == ' '))
+    userLogin userInfo; /*User login information*/
+    response res;       /*Response message*/
+    char *p;
+    p = strtok(buffer, "|");
+    // printf("%s",p);
+    if (strcmp(p, "SELECT_WORK") == 0)
     {
+        // lua chon cong viec khi moi vao
 
-        printf("[DEBUG] Player %d's move was valid.\n", player_id);
-
-        return 1;
-    }
-    else
-    {
-        printf("[DEBUG] Player %d's move was invalid.\n", player_id);
-
-        return 0;
-    }
-}
-
-void update_board(char board[][3], int move, int player_id)
-{
-    board[move / 3][move % 3] = player_id ? 'X' : 'O';
-
-    printf("[DEBUG] Board updated.\n");
-}
-
-void draw_board(char board[][3])
-{
-    printf(" %c | %c | %c \n", board[0][0], board[0][1], board[0][2]);
-    printf("-----------\n");
-    printf(" %c | %c | %c \n", board[1][0], board[1][1], board[1][2]);
-    printf("-----------\n");
-    printf(" %c | %c | %c \n", board[2][0], board[2][1], board[2][2]);
-}
-
-void send_update(int *cli_sockfd, int move, int player_id)
-{
-
-    printf("[DEBUG] Sending update...\n");
-
-    write_clients_msg(cli_sockfd, "UPD");
-
-    write_clients_int(cli_sockfd, player_id);
-
-    write_clients_int(cli_sockfd, move);
-
-    printf("[DEBUG] Update sent.\n");
-}
-
-void send_player_count(int cli_sockfd)
-{
-    write_client_msg(cli_sockfd, "CNT");
-    write_client_int(cli_sockfd, player_count);
-
-    printf("[DEBUG] Player Count Sent.\n");
-}
-
-int check_board(char board[][3], int last_move)
-{
-
-    printf("[DEBUG] Checking for a winner...\n");
-
-    int row = last_move / 3;
-    int col = last_move % 3;
-
-    if (board[row][0] == board[row][1] && board[row][1] == board[row][2])
-    {
-
-        printf("[DEBUG] Win by row %d.\n", row);
-
-        return 1;
-    }
-    else if (board[0][col] == board[1][col] && board[1][col] == board[2][col])
-    {
-
-        printf("[DEBUG] Win by column %d.\n", col);
-
-        return 1;
-    }
-    else if (!(last_move % 2))
-    {
-        if ((last_move == 0 || last_move == 4 || last_move == 8) && (board[1][1] == board[0][0] && board[1][1] == board[2][2]))
+        int check;
+        p = strtok(NULL, "|");
+        check = atoi(p); // lua chon cua client gui ve
+        if (check == 1)
         {
-            printf("[DEBUG] Win by backslash diagonal.\n");
+            printf("\nREADY_LOGIN\n");
+            res.status = 200;
+            strcpy(res.message, "Login");
 
-            return 1;
+            byte_sent = send(newSocket, &res, sizeof(res), 0);
         }
-        if ((last_move == 2 || last_move == 4 || last_move == 6) && (board[1][1] == board[0][2] && board[1][1] == board[2][0]))
+        else if (check == 2)
         {
-            printf("[DEBUG] Win by frontslash diagonal.\n");
-
-            return 1;
+            res.status = 200;
+            strcpy(res.message, "SignUp");
+            byte_sent = send(newSocket, &res, sizeof(res), 0);
         }
-    }
-
-    printf("[DEBUG] No winner, yet.\n");
-
-    return 0;
-}
-
-void *run_game(void *thread_data)
-{
-    int *cli_sockfd = (int *)thread_data;
-    char board[3][3] = {{' ', ' ', ' '},
-                        {' ', ' ', ' '},
-                        {' ', ' ', ' '}};
-
-    printf("Game on!\n");
-
-    write_clients_msg(cli_sockfd, "SRT");
-
-    printf("[DEBUG] Sent start message.\n");
-
-    draw_board(board);
-
-    int prev_player_turn = 1;
-    int player_turn = 0;
-    int game_over = 0;
-    int turn_count = 0;
-    while (!game_over)
-    {
-
-        if (prev_player_turn != player_turn)
-            write_client_msg(cli_sockfd[(player_turn + 1) % 2], "WAT");
-
-        int valid = 0;
-        int move = 0;
-        while (!valid)
+        else if (check == 3)
         {
-            move = get_player_move(cli_sockfd[player_turn]);
-            if (move == -1)
-                break;
-            printf("Player %d played position %d\n", player_turn, move);
+            retry = 0;
+            res.status = 200;
+            strcpy(res.message, "Exit");
 
-            valid = check_move(board, move, player_turn);
-            if (!valid)
+            byte_sent = send(newSocket, &res, sizeof(res), 0);
+            return 0;
+        }
+        else if (check == 4)
+        {
+            res.status = 200;
+            strcpy(res.message, "Exit");
+            char us[100];
+            strcpy(us, strtok(NULL, "|"));
+            node *p;
+            for (p = root; p != NULL; p = p->next)
             {
-                printf("Move was invalid. Let's try this again...\n");
-                write_client_msg(cli_sockfd[player_turn], "INV");
+                if (strcmp(us, p->element.name) == 0)
+                {
+                    p->element.status = 0;
+                }
+            }
+            traversingList(root);
+            byte_sent = send(newSocket, &res, sizeof(res), 0);
+            return 0;
+        }
+        return Check_Send(byte_sent);
+    }
+
+    if (strcmp(p, "LOGIN") == 0)
+    {
+        strcpy(userInfo.user, strtok(NULL, "|"));
+        printf("userName received :%s\n", userInfo.user);
+        strcpy(userInfo.pass, strtok(NULL, "|"));
+        printf("password received :%s\n", userInfo.pass);
+        int fl = 1;
+        node *p;
+        for (p = root; p != NULL; p = p->next)
+        {
+            if (strcmp(userInfo.user, p->element.name) == 0 && strcmp(userInfo.pass, p->element.pass) == 0)
+            {
+                if (p->element.status == 0)
+                {
+                    p->element.status = 1;
+                    strcpy(p->element.ip, ip);
+                    fl = 0;
+                    break;
+                }
+                else
+                {
+                    fl = -1;
+                    break;
+                }
             }
         }
 
-        if (move == -1)
+        if (fl == 0)
         {
-            printf("Player disconnected.\n");
-            break;
+            traversingList(root);
+            res.status = 200;
+            strcpy(res.message, "Login Successful");
+
+            byte_sent = send(newSocket, &res, sizeof(res), 0);
         }
-        else if (move == 9)
+        else if (fl == -1)
         {
-            prev_player_turn = player_turn;
-            send_player_count(cli_sockfd[player_turn]);
+            res.status = 400;
+            strcpy(res.message, "Already Login");
+
+            byte_sent = send(newSocket, &res, sizeof(res), 0);
         }
         else
         {
-            update_board(board, move, player_turn);
-            send_update(cli_sockfd, move, player_turn);
+            res.status = 401;
+            strcpy(res.message, "Login Failure");
 
-            draw_board(board);
-
-            game_over = check_board(board, move);
-
-            if (game_over == 1)
+            byte_sent = send(newSocket, &res, sizeof(res), 0);
+        }
+        return Check_Send(byte_sent);
+    }
+    if (strcmp(p, "LOGOUT") == 0)
+    {
+        char us[100];
+        strcpy(us, strtok(NULL, "|"));
+        node *p;
+        for (p = root; p != NULL; p = p->next)
+        {
+            if (strcmp(us, p->element.name) == 0)
             {
-                write_client_msg(cli_sockfd[player_turn], "WIN");
-                write_client_msg(cli_sockfd[(player_turn + 1) % 2], "LSE");
-                printf("Player %d won.\n", player_turn);
+                p->element.status = 0;
             }
-            else if (turn_count == 8)
-            {
-                printf("Draw.\n");
-                write_clients_msg(cli_sockfd, "DRW");
-                game_over = 1;
-            }
+        }
+        traversingList(root);
+        res.status = 200;
+        strcpy(res.message, "Start");
 
-            prev_player_turn = player_turn;
-            player_turn = (player_turn + 1) % 2;
-            turn_count++;
+        byte_sent = send(newSocket, &res, sizeof(res), 0);
+        return Check_Send(byte_sent);
+    }
+    if (strcmp(p, "SIGNUP") == 0)
+    {
+        strcpy(userInfo.user, strtok(NULL, "|"));
+        printf("userName received :%s\n", userInfo.user);
+        strcpy(userInfo.pass, strtok(NULL, "|"));
+        printf("password received :%s\n", userInfo.pass);
+        int fl = 1;
+        node *p;
+        for (p = root; p != NULL; p = p->next)
+        {
+            if (strcmp(userInfo.user, p->element.name) == 0)
+            {
+                fl = 0;
+                break;
+            }
+        }
+
+        if (fl == 0)
+        {
+            res.status = 400;
+            strcpy(res.message, "Register Fail");
+
+            byte_sent = send(newSocket, &res, sizeof(res), 0);
+        }
+        else
+        {
+            elementtype ele;
+            strcpy(ele.name, userInfo.user);
+            strcpy(ele.pass, userInfo.pass);
+            ele.elo = 0;
+            ele.status = 0;
+            strcpy(ele.ip, ip);
+            insertAtHead(ele);
+            traversingList(root);
+            res.status = 200;
+            strcpy(res.message, "Register Successful");
+
+            byte_sent = send(newSocket, &res, sizeof(res), 0);
+        }
+        return Check_Send(byte_sent);
+    }
+    if (strcmp(p, "START_GAME") == 0)
+    {
+        char us[100];
+        strcpy(us, strtok(NULL, "|"));
+        char *ans = getNumberActive(us);
+        res.status = 200;
+        if (ans == NULL)
+        {
+            strcpy(res.message, "HOLD");
+        }
+        else
+        {
+            char str[100] = "invite|";
+            strcat(str, ans);
+            strcat(str, "|");
+            strcpy(res.message, str);
+        }
+
+        byte_sent = send(newSocket, &res, sizeof(res), 0);
+
+        return Check_Send(byte_sent);
+    }
+    if (strcmp(p, "WAIT") == 0)
+    {
+
+        sleep(5);
+
+        char us[100];
+        strcpy(us, strtok(NULL, "|"));
+        char *ans = getNumberActive(us);
+        res.status = 200;
+        if (ans == NULL)
+        {
+            strcpy(res.message, "WAIT TIMEOUT");
+        }
+        else
+        {
+            char str[100] = "invite|";
+            strcat(str, ans);
+            strcat(str, "|");
+            strcpy(res.message, str);
+        }
+
+        byte_sent = send(newSocket, &res, sizeof(res), 0);
+
+        return Check_Send(byte_sent);
+    }
+    // wait for other to log in to start a game
+    return 0;
+}
+
+void *serverthread(void *client_socket)
+{
+
+    int check_status = 1;
+    char buffer[1024];
+    int newSocket = *(int *)client_socket; /*Thread Socket descriptor*/
+    printf("Thread ID:%d\n", newSocket);
+    traversingList(root);
+    /* Get client's IP address*/
+    char ip[INET_ADDRSTRLEN]; /*Char array to store client's IP address*/
+    memset(ip, '\0', (strlen(ip) + 1));
+    struct sockaddr_in peeraddr;
+    socklen_t peeraddrlen = sizeof(peeraddr);
+    getpeername(newSocket, &peeraddr, &peeraddrlen); /*Retrives address of the peer to which a socket is connected*/
+    // inet_ntop(AF_INET, &(peeraddr.sin_addr), ip, INET_ADDRSTRLEN); /*Binary to text string*/ /*Retriving IP addrees of client and converting
+    // it to text and storing it in IP char array*/
+
+    // mark
+    strcpy(ip, inet_ntoa(peeraddr.sin_addr));
+    printf("%s\n", ip);
+    response res; /*Response message*/
+    res.status = 200;
+    strcpy(res.message, "Start");
+    int byte_sent = send(newSocket, &res, sizeof(res), 0);
+    if (byte_sent <= 0)
+    {
+        printf("Fail to receive");
+        close(newSocket);
+        pthread_exit(0);
+    }
+    while (1)
+    {
+        int byte_recv = recv(newSocket, buffer, 1024, 0);
+        if (byte_recv <= 0)
+        {
+            printf("Fail to receive");
+
+            break;
+        }
+        buffer[byte_recv] = '\0';
+        printf("CLient:%s\n", buffer);
+
+        if (checkRecvMsg(buffer, newSocket, ip) <= 0)
+        {
+            break;
         }
     }
-
-    printf("Game over.\n");
-
-    close(cli_sockfd[0]);
-    close(cli_sockfd[1]);
-
-    pthread_mutex_lock(&mutexcount);
-    player_count--;
-    printf("Number of players is now %d.", player_count);
-    player_count--;
-    printf("Number of players is now %d.", player_count);
-    pthread_mutex_unlock(&mutexcount);
-
-    free(cli_sockfd);
-
-    pthread_exit(NULL);
+    printf("Close thread:%d\n", newSocket);
+    close(newSocket);
+    pthread_exit(0);
 }
 
 int main(int argc, char *argv[])
 {
-    if (argc < 2)
+    importTextFile("database.txt");
+    int sockfd, ret;
+    struct protoent *ptrp;
+    struct sockaddr_in serverAddr;
+    int newSocket;
+    struct sockaddr_in newAddr;
+    response res;
+    socklen_t addr_size;
+    short SERV_PORT;
+    char buffer[1024];
+    pthread_t tid;
+    int byte_recv, byte_sent;
+
+    if (argc != 2)
     {
-        fprintf(stderr, "ERROR, no port provided\n");
+        printf("Usage: %s <TCP SERVER PORT>\n", argv[0]);
+        exit(1);
+    }
+    SERV_PORT = atoi(argv[1]);
+
+    memset(&serverAddr, '\0', sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serverAddr.sin_port = htons(SERV_PORT);
+    if (((ptrp = getprotobyname("tcp"))) == 0)
+    {
+        fprintf(stderr, "cannot map \"tcp\" to protocol number");
         exit(1);
     }
 
-    int lis_sockfd = setup_listener(atoi(argv[1]));
-    pthread_mutex_init(&mutexcount, NULL);
-
-    while (1)
+    sockfd = socket(PF_INET, SOCK_STREAM, ptrp->p_proto);
+    if (sockfd < 0)
     {
-        if (player_count <= 252)
-        {
-            int *cli_sockfd = (int *)malloc(2 * sizeof(int));
-            memset(cli_sockfd, 0, 2 * sizeof(int));
+        printf("[-]Error in connection.\n");
+        exit(1);
+    }
+    printf("[+]Server Socket is created.\n");
 
-            get_clients(lis_sockfd, cli_sockfd);
+    ret = bind(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+    if (ret < 0)
+    {
+        printf("[-]Error in binding.\n");
+        exit(1);
+    }
+    printf("[+]Bind to port %d\n", SERV_PORT);
 
-            printf("[DEBUG] Starting new game thread...\n");
-
-            pthread_t thread;
-            int result = pthread_create(&thread, NULL, run_game, (void *)cli_sockfd);
-            if (result)
-            {
-                printf("Thread creation failed with return code %d\n", result);
-                exit(-1);
-            }
-
-            printf("[DEBUG] New game thread started.\n");
-        }
+    if (listen(sockfd, 10) == 0)
+    {
+        printf("[+]Listening....\n");
+    }
+    else
+    {
+        printf("[-]Error in binding.\n");
     }
 
-    close(lis_sockfd);
+    while (1)
+    { // mark
+        newSocket = accept(sockfd, (struct sockaddr *)&newAddr, &addr_size);
+        printf("Connection accepted from %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
+        printf("New connection\n");
+        if (newSocket < 0)
+        {
+            exit(1);
+        }
+        if (pthread_create(&tid, NULL, serverthread, &newSocket) < 0)
+        {
+            printf("Cannot create thread");
+            break;
+        }
+    }
+    printf("End server");
+    close(sockfd);
 
-    pthread_mutex_destroy(&mutexcount);
-    pthread_exit(NULL);
+    return 0;
 }
