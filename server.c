@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -34,7 +33,7 @@ char *getCommand(char *msg)
     return command;
 }
 
-int checkRecvMsg(char buffer[1000], int newSocket, char *ip)
+int checkRecvMsg(char buffer[1000], int newSocket)
 {
     int byte_sent, byte_recv;
     int retry;
@@ -110,7 +109,7 @@ int checkRecvMsg(char buffer[1000], int newSocket, char *ip)
                 if (p->element.status == 0)
                 {
                     p->element.status = 1;
-                    strcpy(p->element.ip, ip);
+                    //strcpy(p->element.ip, ip);
                     fl = 0;
                     break;
                 }
@@ -196,7 +195,7 @@ int checkRecvMsg(char buffer[1000], int newSocket, char *ip)
             strcpy(ele.pass, userInfo.pass);
             ele.elo = 0;
             ele.status = 0;
-            strcpy(ele.ip, ip);
+            //strcpy(ele.ip, ip);
             insertAtHead(ele);
             traversingList(root);
             res.status = 200;
@@ -265,18 +264,7 @@ void *serverthread(void *client_socket)
     int newSocket = *(int *)client_socket; /*Thread Socket descriptor*/
     printf("Thread ID:%d\n", newSocket);
     traversingList(root);
-    /* Get client's IP address*/
-    char ip[INET_ADDRSTRLEN]; /*Char array to store client's IP address*/
-    memset(ip, '\0', (strlen(ip) + 1));
-    struct sockaddr_in peeraddr;
-    socklen_t peeraddrlen = sizeof(peeraddr);
-    getpeername(newSocket, &peeraddr, &peeraddrlen); /*Retrives address of the peer to which a socket is connected*/
-    // inet_ntop(AF_INET, &(peeraddr.sin_addr), ip, INET_ADDRSTRLEN); /*Binary to text string*/ /*Retriving IP addrees of client and converting
-    // it to text and storing it in IP char array*/
-
-    // mark
-    strcpy(ip, inet_ntoa(peeraddr.sin_addr));
-    printf("%s\n", ip);
+    
     response res; /*Response message*/
     res.status = 200;
     strcpy(res.message, "Start");
@@ -299,7 +287,7 @@ void *serverthread(void *client_socket)
         buffer[byte_recv] = '\0';
         printf("CLient:%s\n", buffer);
 
-        if (checkRecvMsg(buffer, newSocket, ip) <= 0)
+        if (checkRecvMsg(buffer, newSocket) <= 0)
         {
             break;
         }
