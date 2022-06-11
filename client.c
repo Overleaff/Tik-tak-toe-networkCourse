@@ -180,7 +180,13 @@ int check_message(response res)
 
         return 0;
     }
-   
+    if (strcmp(res.message, "START") == 0)
+    {
+
+        printf("Good bye\n");
+
+        return 0;
+    }
 }
 int main(int argc, char *argv[])
 {

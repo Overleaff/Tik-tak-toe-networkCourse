@@ -16,6 +16,46 @@
 #define PORT 5500
 #include "singLL.h"
 
+#define MAX_CLIENTS 10
+#define MAX_ROOMS 5
+#define BUFFER_SZ 2048
+#define NAME_LEN 64
+int uid = 10;
+int roomUid = 1;
+// client structure
+typedef struct
+{
+    struct sockaddr_in address;
+    int sockfd;
+    int uid;
+    char name[NAME_LEN];
+} client_t;
+
+typedef struct
+{
+    char tabuleiro[3][3];
+    int estadoDeJogo;
+    int rodada;
+    int turnoDoJogador;
+} game_t;
+
+// room structure
+typedef struct
+{
+    client_t *player1;
+    client_t *player2;
+    unsigned int uid;
+    char state[NAME_LEN];
+    game_t *game;
+} room_t;
+
+client_t *clients[MAX_CLIENTS];
+room_t *rooms[MAX_ROOMS];
+
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t rooms_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+#include "queueManager.h"
 char *getCommand(char *msg)
 {
     char command[20];
@@ -109,7 +149,7 @@ int checkRecvMsg(char buffer[1000], int newSocket)
                 if (p->element.status == 0)
                 {
                     p->element.status = 1;
-                    //strcpy(p->element.ip, ip);
+                    // strcpy(p->element.ip, ip);
                     fl = 0;
                     break;
                 }
@@ -195,7 +235,7 @@ int checkRecvMsg(char buffer[1000], int newSocket)
             strcpy(ele.pass, userInfo.pass);
             ele.elo = 0;
             ele.status = 0;
-            //strcpy(ele.ip, ip);
+            // strcpy(ele.ip, ip);
             insertAtHead(ele);
             traversingList(root);
             res.status = 200;
@@ -207,21 +247,10 @@ int checkRecvMsg(char buffer[1000], int newSocket)
     }
     if (strcmp(p, "START_GAME") == 0)
     {
-        char us[100];
-        strcpy(us, strtok(NULL, "|"));
-        char *ans = getNumberActive(us);
+
         res.status = 200;
-        if (ans == NULL)
-        {
-            strcpy(res.message, "HOLD");
-        }
-        else
-        {
-            char str[100] = "invite|";
-            strcat(str, ans);
-            strcat(str, "|");
-            strcpy(res.message, str);
-        }
+
+        strcpy(res.message, "START");
 
         byte_sent = send(newSocket, &res, sizeof(res), 0);
 
@@ -264,7 +293,7 @@ void *serverthread(void *client_socket)
     int newSocket = *(int *)client_socket; /*Thread Socket descriptor*/
     printf("Thread ID:%d\n", newSocket);
     traversingList(root);
-    
+
     response res; /*Response message*/
     res.status = 200;
     strcpy(res.message, "Start");
