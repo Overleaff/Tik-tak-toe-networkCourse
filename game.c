@@ -22,13 +22,13 @@
 volatile sig_atomic_t flag = 0;
 int sockfd = 0;
 char name[NAME_LEN];
-int player = 1;
+int jogador = 1;
 
 pthread_t lobby_thread;
 pthread_t recv_msg_thread;
 pthread_t multiplayer_game;
 
-char *ip="127.0.0.1";
+char *ip = "127.0.0.1";
 int port = 2050;
 
 void catch_ctrl_c_and_exit()
@@ -44,9 +44,9 @@ void showPositions()
     printf("\n 1 | 2 | 3\n");
 }
 
-void showBoard(char board[3][3], char *errorMessage)
+void showBoard(char tabuleiro[3][3], char *errorMessage)
 {
-    int line;
+    int linha;
 
     flashScreen();
 
@@ -58,9 +58,9 @@ void showBoard(char board[3][3], char *errorMessage)
 
     printf("#############\n");
 
-    for (line = 0; line < 3; line++)
+    for (linha = 0; linha < 3; linha++)
     {
-        printf("# %c | %c | %c #", board[line][0], board[line][1], board[line][2]);
+        printf("# %c | %c | %c #", tabuleiro[linha][0], tabuleiro[linha][1], tabuleiro[linha][2]);
 
         printf("\n");
     }
@@ -70,15 +70,15 @@ void showBoard(char board[3][3], char *errorMessage)
     showPositions();
 }
 
-void createBoard(char board[3][3])
+void createBoard(char tabuleiro[3][3])
 {
-    int line, col;
+    int linha, coluna;
 
-    for (line = 0; line < 3; line++)
+    for (linha = 0; linha < 3; linha++)
     {
-        for (col = 0; col < 3; col++)
+        for (coluna = 0; coluna < 3; coluna++)
         {
-            board[line][col] = '-';
+            tabuleiro[linha][coluna] = '-';
         }
     }
 }
@@ -92,26 +92,26 @@ void recv_msg_handler();
 
 void *multiplayerGame(void *arg)
 {
-    int playerTurn;
-    playerTurn = player;
-    char namePlayer1[32];
-    char namePlayer2[32];
+    int turnoDoJogador;
+    turnoDoJogador = jogador;
+    char nomeJogador1[32];
+    char nomeJogador2[32];
 
-    strcpy(namePlayer1, name);
+    strcpy(nomeJogador1, name);
 
-    char board[3][3];
+    char tabuleiro[3][3];
     int iterator;
-    int linePlay, colPlay;
-    int positionPlay;
-    int round = 0;
-    int gameStatus = 1;
+    int linhaJogada, colunaJogada;
+    int posicaoJogada;
+    int rodada = 0;
+    int estadoDeJogo = 1;
     int valid_play = 0;
     int played;
     int numberPlayed;
-    int positions[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
+    int posicoes[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
 
     char errorMessage[255] = {'\x00'};
-    char *currentPlayerName;
+    char *nomeJogadorAtual;
     char message[BUFFER_SZ] = {};
 
     int receive = recv(sockfd, message, BUFFER_SZ, 0);
@@ -119,31 +119,31 @@ void *multiplayerGame(void *arg)
     if (receive > 0) {
         setbuf(stdin, 0);
         trim_lf(message, strlen(message));
-        sscanf(message, "%s", &namePlayer2[0]);
+        sscanf(message, "%s", &nomeJogador2[0]);
 
         setbuf(stdout, 0);
         setbuf(stdin, 0);
 
         bzero(message, BUFFER_SZ);
 
-        createBoard(board);
-        round = 0;
+        createBoard(tabuleiro);
+        rodada = 0;
 
-        while (round < 9 && gameStatus == 1)
+        while (rodada < 9 && estadoDeJogo == 1)
         {
-            if (playerTurn == 1)
+            if (turnoDoJogador == 1)
             {
-                currentPlayerName = (char *)&namePlayer1;
+                nomeJogadorAtual = (char *)&nomeJogador1;
             } 
             else
             {
-                currentPlayerName = (char *)&namePlayer2;
+                nomeJogadorAtual = (char *)&nomeJogador2;
             }
 
-            showBoard(board, (char *)&errorMessage);
+            showBoard(tabuleiro, (char *)&errorMessage);
 
-            printf("\nround: %d", round);
-            printf("\nplayer: %s\n", currentPlayerName);
+            printf("\nRound: %d", rodada);
+            printf("\nPlayer: %s\n", nomeJogadorAtual);
 
             while (valid_play == 0)
             {
@@ -159,17 +159,17 @@ void *multiplayerGame(void *arg)
 
                     if (strcmp(message, "vez1\n") == 0)
                     {
-                        printf("Digite uma posicao: ");
-                        scanf("%d", &positionPlay);
+                        printf("Enter a position: ");
+                        scanf("%d", &posicaoJogada);
 
 
-                        linePlay = positions[positionPlay - 1][0];
-                        colPlay = positions[positionPlay - 1][1];
+                        linhaJogada = posicoes[posicaoJogada - 1][0];
+                        colunaJogada = posicoes[posicaoJogada - 1][1];
 
 
                         if (valid_play == 1)
                         {
-                            sprintf(message, "play %i\n", positionPlay);
+                            sprintf(message, "play %i\n", posicaoJogada);
                             send(sockfd, message, strlen(message), 0);
                             bzero(message, BUFFER_SZ);
                         }
@@ -177,7 +177,7 @@ void *multiplayerGame(void *arg)
                     }
                     else if (strcmp(message, "vez2\n") == 0)
                     {
-                        printf("O outro player esta jogando...\n");
+                        printf("The other player is playing...\n");
 
                         played = 0;
 
@@ -188,8 +188,8 @@ void *multiplayerGame(void *arg)
                             if (receive > 0) {
                                 sscanf(message, "%i", &numberPlayed);
 
-                                linePlay = positions[numberPlayed - 1][0];
-                                colPlay = positions[numberPlayed - 1][1];
+                                linhaJogada = posicoes[numberPlayed - 1][0];
+                                colunaJogada = posicoes[numberPlayed - 1][1];
 
                                 played = 1;
                             }
@@ -204,47 +204,47 @@ void *multiplayerGame(void *arg)
                 }
             }
 
-            if (playerTurn == 1)
+            if (turnoDoJogador == 1)
             {
-                board[linePlay][colPlay] = 'X';
-                playerTurn = 2;
+                tabuleiro[linhaJogada][colunaJogada] = 'X';
+                turnoDoJogador = 2;
             } 
             else
             {
-                board[linePlay][colPlay] = 'O';
-                playerTurn = 1;
+                tabuleiro[linhaJogada][colunaJogada] = 'O';
+                turnoDoJogador = 1;
             }
 
             for (iterator = 0; iterator < 3; iterator++)
             {
                 if (
                     (
-                        (board[iterator][0] == board[iterator][1]) && (board[iterator][1] == board[iterator][2]) && board[iterator][0] != '-'
+                        (tabuleiro[iterator][0] == tabuleiro[iterator][1]) && (tabuleiro[iterator][1] == tabuleiro[iterator][2]) && tabuleiro[iterator][0] != '-'
                     )
                         ||
                     (
-                        (board[0][iterator] == board[1][iterator]) && (board[1][iterator] == board[2][iterator]) && board[0][iterator] != '-'
+                        (tabuleiro[0][iterator] == tabuleiro[1][iterator]) && (tabuleiro[1][iterator] == tabuleiro[2][iterator]) && tabuleiro[0][iterator] != '-'
                     )
                 )
                 {
-                    gameStatus = 0;
+                    estadoDeJogo = 0;
                 }
             }
 
             if (
                 (
-                    (board[0][0] == board[1][1]) && (board[1][1] == board[2][2]) && board[0][0] != '-'
+                    (tabuleiro[0][0] == tabuleiro[1][1]) && (tabuleiro[1][1] == tabuleiro[2][2]) && tabuleiro[0][0] != '-'
                 )
                     ||
                 (
-                    (board[0][2] == board[1][1]) && (board[1][1] == board[2][0]) && board[0][2] != '-'
+                    (tabuleiro[0][2] == tabuleiro[1][1]) && (tabuleiro[1][1] == tabuleiro[2][0]) && tabuleiro[0][2] != '-'
                 )
             )
             {
-                gameStatus = 0;
+                estadoDeJogo = 0;
             }
 
-            round++;
+            rodada++;
             valid_play = 0;
             bzero(message, BUFFER_SZ);
         }
@@ -257,16 +257,16 @@ void *multiplayerGame(void *arg)
             setbuf(stdin, 0);
             setbuf(stdout, 0);
 
-            showBoard(board, (char *)&errorMessage);
+            showBoard(tabuleiro, (char *)&errorMessage);
 
 
             if (strcmp(message, "win1\n") == 0)
             {
-                printf("\nO player '%s' won!", currentPlayerName);
+                printf("\nPlayer '%s' win!", nomeJogadorAtual);
             }
             else if (strcmp(message, "win2\n") == 0)
             {
-                printf("\nO player '%s' won!", currentPlayerName);
+                printf("\nPlayer '%s' win!", nomeJogadorAtual);
             }
 
             printf("\nEnd of the game!\n");
@@ -330,12 +330,12 @@ void recv_msg_handler()
         if (receive > 0) {
             if (strcmp(message, "ok") == 0)
             {
-                printf("Commands:\n");
-                printf("\t -list\t\t\t List all tic-tac-toe rooms\n");
-                printf("\t -create\t\t Create one tic-tac-toe room\n");
-                printf("\t -join {room number}\t Join in one tic-tac-toe room\n");
-                printf("\t -leave\t\t\t Back of the one tic-tac-toe room\n");
-                printf("\t -start\t\t\t Starts one tic-tac-toe game\n\n");
+                printf("Comandos:\n");
+                printf("\t -list\t\t\t  List all tic-tac-toe rooms\n");
+                printf("\t -create\t\t  Create one tic-tac-toe room\n");
+                printf("\t -join {room number}\t  Join in one tic-tac-toe room\n");
+                printf("\t -leave\t\t\t  Back of the one tic-tac-toe room\n");
+                printf("\t -start\t\t\t  Starts one tic-tac-toe game\n\n");
 
                 str_overwrite_stdout();
             }
@@ -344,7 +344,7 @@ void recv_msg_handler()
                 pthread_cancel(lobby_thread);
                 // pthread_kill(recv_msg_thread, SIGUSR1);   
                 
-                player = 1;
+                jogador = 1;
                 if (pthread_create(&multiplayer_game, NULL, (void*)multiplayerGame, NULL) != 0) {
                     printf("ERROR: pthread\n");
                     exit(EXIT_FAILURE);
@@ -359,7 +359,7 @@ void recv_msg_handler()
                 pthread_cancel(lobby_thread);
                 // pthread_kill(recv_msg_thread, SIGUSR1);   
                 
-                player = 2;
+                jogador = 2;
                 if (pthread_create(&multiplayer_game, NULL, (void*)multiplayerGame, NULL) != 0) {
                     printf("ERROR: pthread\n");
                     exit(EXIT_FAILURE);
@@ -420,13 +420,12 @@ int conectGame()
     }
 
     struct sockaddr_in server_addr;
-   
+    
     //socket settings
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    bzero(&server_addr, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
     server_addr.sin_addr.s_addr = inet_addr(ip);
+    server_addr.sin_port = htons(port);
 
     // connect to the server
     int err = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
@@ -463,61 +462,61 @@ int conectGame()
 
 void game()
 {
-    char board[3][3];
+    char tabuleiro[3][3];
     int iterator;
-    int linePlay, colPlay;
-    int positionPlay;
-    int playerTurn = 1;
-    int round = 0;
-    int gameStatus = 1;
-    int optionReinicio;
+    int linhaJogada, colunaJogada;
+    int posicaoJogada;
+    int turnoDoJogador = 1;
+    int rodada = 0;
+    int estadoDeJogo = 1;
+    int opcaoReinicio;
     int gaming = 1;
 
     char errorMessage[255] = {'\x00'};
 
-    char namePlayer1[32];
-    char namePlayer2[32];
-    char *currentPlayerName;
+    char nomeJogador1[32];
+    char nomeJogador2[32];
+    char *nomeJogadorAtual;
 
     setbuf(stdin, 0);
 
-    printf("Name do 1° player: ");
-    fgets(namePlayer1, 32, stdin);
+    printf("1st player's name: ");
+    fgets(nomeJogador1, 32, stdin);
 
-    namePlayer1[strlen(namePlayer1) - 1] = '\x00';
+    nomeJogador1[strlen(nomeJogador1) - 1] = '\x00';
 
-    printf("Name do 2° player: ");
-    fgets(namePlayer2, 32, stdin);
+    printf("2nd player's name: ");
+    fgets(nomeJogador2, 32, stdin);
 
-    namePlayer2[strlen(namePlayer2) - 1] = '\x00';
+    nomeJogador2[strlen(nomeJogador2) - 1] = '\x00';
 
     while (gaming == 1)
     {
-        createBoard(board);
-        round = 0;
-        playerTurn = 1;
+        createBoard(tabuleiro);
+        rodada = 0;
+        turnoDoJogador = 1;
 
-        while (round < 9 && gameStatus == 1)
+        while (rodada < 9 && estadoDeJogo == 1)
         {
-            showBoard(board, (char *)&errorMessage);
+            showBoard(tabuleiro, (char *)&errorMessage);
 
-            if (playerTurn == 1)
+            if (turnoDoJogador == 1)
             {
-                currentPlayerName = (char *)&namePlayer1;
+                nomeJogadorAtual = (char *)&nomeJogador1;
             } 
             else
             {
-                currentPlayerName = (char *)&namePlayer2;
+                nomeJogadorAtual = (char *)&nomeJogador2;
             }
 
-            int positions[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
+            int posicoes[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
 
-            printf("\nround: %d", round);
-            printf("\nplayer: %s\n", currentPlayerName);
+            printf("\nRound: %d", rodada);
+            printf("\nPlayer: %s\n", nomeJogadorAtual);
             printf("Enter a position: ");
-            scanf("%d", &positionPlay);
+            scanf("%d", &posicaoJogada);
 
-            if (positionPlay < 1 || positionPlay > 9) {
+            if (posicaoJogada < 1 || posicaoJogada > 9) {
                 errorMessage[0] = '\x70';
                 errorMessage[1] = '\x6F';
                 errorMessage[2] = '\x73';
@@ -528,10 +527,10 @@ void game()
                 continue;
             }
 
-            linePlay = positions[positionPlay - 1][0];
-            colPlay = positions[positionPlay - 1][1];
+            linhaJogada = posicoes[posicaoJogada - 1][0];
+            colunaJogada = posicoes[posicaoJogada - 1][1];
 
-            if (board[linePlay][colPlay] != '-')
+            if (tabuleiro[linhaJogada][colunaJogada] != '-')
             {
                 errorMessage[0] = '\x70';
                 errorMessage[1] = '\x6F';
@@ -553,66 +552,66 @@ void game()
                 continue;
             }
 
-            if (playerTurn == 1)
+            if (turnoDoJogador == 1)
             {
-                board[linePlay][colPlay] = 'X';
-                playerTurn = 2;
+                tabuleiro[linhaJogada][colunaJogada] = 'X';
+                turnoDoJogador = 2;
             } 
             else
             {
-                board[linePlay][colPlay] = 'O';
-                playerTurn = 1;
+                tabuleiro[linhaJogada][colunaJogada] = 'O';
+                turnoDoJogador = 1;
             }
 
             for (iterator = 0; iterator < 3; iterator++)
             {
                 if (
                     (
-                        (board[iterator][0] == board[iterator][1]) && (board[iterator][1] == board[iterator][2]) && board[iterator][0] != '-'
+                        (tabuleiro[iterator][0] == tabuleiro[iterator][1]) && (tabuleiro[iterator][1] == tabuleiro[iterator][2]) && tabuleiro[iterator][0] != '-'
                     )
                         ||
                     (
-                        (board[0][iterator] == board[1][iterator]) && (board[1][iterator] == board[2][iterator]) && board[0][iterator] != '-'
+                        (tabuleiro[0][iterator] == tabuleiro[1][iterator]) && (tabuleiro[1][iterator] == tabuleiro[2][iterator]) && tabuleiro[0][iterator] != '-'
                     )
                 )
                 {
-                    gameStatus = 0;
+                    estadoDeJogo = 0;
                 }
             }
 
             if (
                 (
-                    (board[0][0] == board[1][1]) && (board[1][1] == board[2][2]) && board[0][0] != '-'
+                    (tabuleiro[0][0] == tabuleiro[1][1]) && (tabuleiro[1][1] == tabuleiro[2][2]) && tabuleiro[0][0] != '-'
                 )
                     ||
                 (
-                    (board[0][2] == board[1][1]) && (board[1][1] == board[2][0]) && board[0][2] != '-'
+                    (tabuleiro[0][2] == tabuleiro[1][1]) && (tabuleiro[1][1] == tabuleiro[2][0]) && tabuleiro[0][2] != '-'
                 )
             )
             {
-                gameStatus = 0;
+                estadoDeJogo = 0;
             }
 
-            round++;
+            rodada++;
         }
 
-        showBoard(board, (char *)&errorMessage);
+        showBoard(tabuleiro, (char *)&errorMessage);
 
-        printf("\nThe player '%s' has won!", currentPlayerName);
+        printf("\nOther player '%s' win!", nomeJogadorAtual);
 
-        printf("\nGame over!\n");
-        printf("\nDo you want to restart the game?");
+        printf("\nEnd of the game!\n");
+        printf("\nDo you want to start a game?");
         printf("\n1 - Yes");
         printf("\n2 - No");
         printf("\nChoose an option and press ENTER: ");
 
-        scanf("%d", &optionReinicio);
+        scanf("%d", &opcaoReinicio);
 
 
-        switch (optionReinicio)
+        switch (opcaoReinicio)
         {
             case 1:
-                gameStatus = 1;
+                estadoDeJogo = 1;
                 break;
             case 2:
                 menu();
@@ -623,59 +622,59 @@ void game()
 
 void menu()
 {
-    int option = 0;
+    int opcao = 0;
 
     flashScreen();
 
     signal(SIGINT, catch_ctrl_c_and_exit);
 
-    while (option < 1 || option > 3)
+    while (opcao < 1 || opcao > 3)
     {
-        printf("Welcome to the Game");
-        printf("\n1 - Play Locally");
-        printf("\n2 - Play Online");
+        printf("Welcome to Tic Tac Toe");
+        printf("\n1 - Play locally");
+        printf("\n2 - Play online");
         printf("\n3 - About");
         printf("\n4 - Exit");
         printf("\nChoose an option and press ENTER: ");
 
-        scanf("%d", &option);
+        scanf("%d", &opcao);
 
-        switch (option)
+        switch (opcao)
         {
             case 1:
                 flashScreen();
-                option = 0;
+                opcao = 0;
                 game();
                 break;
             case 2:
                 flashScreen();
-                option = 0;
+                opcao = 0;
                 exit(conectGame());
                 break;
             case 3:
                 flashScreen();
-                option = 0;
+                opcao = 0;
                 printf("About the game!\n");
                 break;
             case 4:
                 flashScreen();
-                option = 0;
+                opcao = 0;
                 printf("You leave!\n");
                 exit(0);
                 break;
             default:
                 flashScreen();
-                option = 0;
-                printf("invalid option!\n");
+                opcao = 0;
+                printf("Invalid option!\n");
+                continue;
                 break;
         }
     }
 }
 
 int main(int argc, char **argv)
-{   
-    //ip = argv[1];
-    //printf("%s",ip);
+{
     menu();
+
     return 0;
 }
