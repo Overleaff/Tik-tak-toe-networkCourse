@@ -1,365 +1,685 @@
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <errno.h>
+#include <signal.h>
 #include <unistd.h>
-#include <sys/types.h>
+
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
-int player_count = 0;
-pthread_mutex_t mutexcount;
+#include <pthread.h>
+#include <sys/types.h>
+#include "customSTD.h"
 
-void error(const char *msg)
+#define MAX_CLIENTS 10
+#define MAX_ROOMS 5
+#define BUFFER_SZ 2048
+#define NAME_LEN 100
+
+static _Atomic unsigned int cli_count = 0; 
+static int uid = 10;
+static int roomUid = 1;
+
+int posicoes[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
+char str[10][100]={"tu"};
+// client structure
+typedef struct {
+    struct sockaddr_in address;
+    int  sockfd;
+    int  uid;
+    char name[NAME_LEN];
+    int  elo;
+} client_t;
+
+typedef struct {
+    char tabuleiro[3][3];
+    int estadoDeJogo;
+    int rodada;
+    int turnoDoJogador;
+} game_t;
+
+// room structure
+typedef struct {
+    client_t *player1;
+    client_t *player2;
+    unsigned int uid;
+    char state[NAME_LEN];
+    game_t *game;
+    char roomType[10];
+} room_t;
+
+client_t *clients[MAX_CLIENTS];
+room_t *rooms[MAX_ROOMS];
+
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t rooms_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+#include "queueManager.h"
+
+void send_message(char *message, int uid)
 {
-    perror(msg);
-    pthread_exit(NULL);
-}
+    pthread_mutex_lock(&clients_mutex);
 
-void write_client_msg(int cli_sockfd, char *msg)
-{
-    int n = write(cli_sockfd, msg, strlen(msg));
-    if (n < 0)
-        error("ERROR writing msg to client socket");
-}
-
-void write_client_int(int cli_sockfd, int msg)
-{
-    int n = write(cli_sockfd, &msg, sizeof(int));
-    if (n < 0)
-        error("ERROR writing int to client socket");
-}
-
-void write_clients_msg(int *cli_sockfd, char *msg)
-{
-    write_client_msg(cli_sockfd[0], msg);
-    write_client_msg(cli_sockfd[1], msg);
-}
-
-void write_clients_int(int *cli_sockfd, int msg)
-{
-    write_client_int(cli_sockfd[0], msg);
-    write_client_int(cli_sockfd[1], msg);
-}
-
-int setup_listener(int portno)
-{
-    int sockfd;
-    struct sockaddr_in serv_addr;
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-        error("ERROR opening listener socket.");
-
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(portno);
-
-    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-        error("ERROR binding listener socket.");
-
-    printf("[DEBUG] Listener set.\n");
-
-    return sockfd;
-}
-int recv_int(int cli_sockfd)
-{
-    int msg = 0;
-    int n = read(cli_sockfd, &msg, sizeof(int));
-
-    if (n < 0 || n != sizeof(int))
-        return -1;
-
-    printf("[DEBUG] Received int: %d\n", msg);
-
-    return msg;
-}
-
-void get_clients(int lis_sockfd, int *cli_sockfd)
-{
-    socklen_t clilen;
-    struct sockaddr_in serv_addr, cli_addr;
-
-    printf("[DEBUG] Listening for clients...\n");
-
-    int num_conn = 0;
-    while (num_conn < 2)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
-        listen(lis_sockfd, 253 - player_count);
-
-        memset(&cli_addr, 0, sizeof(cli_addr));
-
-        clilen = sizeof(cli_addr);
-
-        cli_sockfd[num_conn] = accept(lis_sockfd, (struct sockaddr *)&cli_addr, &clilen);
-
-        if (cli_sockfd[num_conn] < 0)
-            error("ERROR accepting a connection from a client.");
-
-        printf("[DEBUG] Accepted connection from client %d\n", num_conn);
-
-        write(cli_sockfd[num_conn], &num_conn, sizeof(int));
-
-        printf("[DEBUG] Sent client %d it's ID.\n", num_conn);
-
-        pthread_mutex_lock(&mutexcount);
-        player_count++;
-        printf("Number of players is now %d.\n", player_count);
-        pthread_mutex_unlock(&mutexcount);
-
-        if (num_conn == 0)
-        {
-            write_client_msg(cli_sockfd[0], "HLD");
-
-            printf("[DEBUG] Told client 0 to hold.\n");
-        }
-
-        num_conn++;
-    }
-}
-
-int get_player_move(int cli_sockfd)
-{
-
-    printf("[DEBUG] Getting player move...\n");
-
-    write_client_msg(cli_sockfd, "TRN");
-
-    return recv_int(cli_sockfd);
-}
-
-int check_move(char board[][3], int move, int player_id)
-{
-    if ((move == 9) || (board[move / 3][move % 3] == ' '))
-    {
-
-        printf("[DEBUG] Player %d's move was valid.\n", player_id);
-
-        return 1;
-    }
-    else
-    {
-        printf("[DEBUG] Player %d's move was invalid.\n", player_id);
-
-        return 0;
-    }
-}
-
-void update_board(char board[][3], int move, int player_id)
-{
-    board[move / 3][move % 3] = player_id ? 'X' : 'O';
-
-    printf("[DEBUG] Board updated.\n");
-}
-
-void draw_board(char board[][3])
-{
-    printf(" %c | %c | %c \n", board[0][0], board[0][1], board[0][2]);
-    printf("-----------\n");
-    printf(" %c | %c | %c \n", board[1][0], board[1][1], board[1][2]);
-    printf("-----------\n");
-    printf(" %c | %c | %c \n", board[2][0], board[2][1], board[2][2]);
-}
-
-void send_update(int *cli_sockfd, int move, int player_id)
-{
-
-    printf("[DEBUG] Sending update...\n");
-
-    write_clients_msg(cli_sockfd, "UPD");
-
-    write_clients_int(cli_sockfd, player_id);
-
-    write_clients_int(cli_sockfd, move);
-
-    printf("[DEBUG] Update sent.\n");
-}
-
-void send_player_count(int cli_sockfd)
-{
-    write_client_msg(cli_sockfd, "CNT");
-    write_client_int(cli_sockfd, player_count);
-
-    printf("[DEBUG] Player Count Sent.\n");
-}
-
-int check_board(char board[][3], int last_move)
-{
-
-    printf("[DEBUG] Checking for a winner...\n");
-
-    int row = last_move / 3;
-    int col = last_move % 3;
-
-    if (board[row][0] == board[row][1] && board[row][1] == board[row][2])
-    {
-
-        printf("[DEBUG] Win by row %d.\n", row);
-
-        return 1;
-    }
-    else if (board[0][col] == board[1][col] && board[1][col] == board[2][col])
-    {
-
-        printf("[DEBUG] Win by column %d.\n", col);
-
-        return 1;
-    }
-    else if (!(last_move % 2))
-    {
-        if ((last_move == 0 || last_move == 4 || last_move == 8) && (board[1][1] == board[0][0] && board[1][1] == board[2][2]))
-        {
-            printf("[DEBUG] Win by backslash diagonal.\n");
-
-            return 1;
-        }
-        if ((last_move == 2 || last_move == 4 || last_move == 6) && (board[1][1] == board[0][2] && board[1][1] == board[2][0]))
-        {
-            printf("[DEBUG] Win by frontslash diagonal.\n");
-
-            return 1;
-        }
-    }
-
-    printf("[DEBUG] No winner, yet.\n");
-
-    return 0;
-}
-
-void *run_game(void *thread_data)
-{
-    int *cli_sockfd = (int *)thread_data;
-    char board[3][3] = {{' ', ' ', ' '},
-                        {' ', ' ', ' '},
-                        {' ', ' ', ' '}};
-
-    printf("Game on!\n");
-
-    write_clients_msg(cli_sockfd, "SRT");
-
-    printf("[DEBUG] Sent start message.\n");
-
-    draw_board(board);
-
-    int prev_player_turn = 1;
-    int player_turn = 0;
-    int game_over = 0;
-    int turn_count = 0;
-    while (!game_over)
-    {
-
-        if (prev_player_turn != player_turn)
-            write_client_msg(cli_sockfd[(player_turn + 1) % 2], "WAT");
-
-        int valid = 0;
-        int move = 0;
-        while (!valid)
-        {
-            move = get_player_move(cli_sockfd[player_turn]);
-            if (move == -1)
-                break;
-            printf("Player %d played position %d\n", player_turn, move);
-
-            valid = check_move(board, move, player_turn);
-            if (!valid)
+        if (clients[i])
+        {   
+            if (clients[i]->uid == uid)
             {
-                printf("Move was invalid. Let's try this again...\n");
-                write_client_msg(cli_sockfd[player_turn], "INV");
+                if (write(clients[i]->sockfd, message, strlen(message)) < 0)
+                {
+                    printf("ERROR: write to descriptor failed\n");
+                    break;
+                }
             }
         }
+    }
 
-        if (move == -1)
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+void *handle_client(void *arg)
+{
+    char buffer[BUFFER_SZ];
+    char command[BUFFER_SZ];
+    int number; 
+    char name[NAME_LEN];
+    int leave_flag = 0;
+    int flag = 0;
+     int isRank=0;
+    client_t *cli = (client_t*)arg;
+    
+
+    // name
+    if (recv(cli->sockfd, name, NAME_LEN, 0) <= 0 || strlen(name) < 2 || strlen(name) >= NAME_LEN -1)
+    {
+        printf("Enter the name correctly\n");
+        leave_flag = 1;
+    } else {
+        cli->elo =1200;
+        strcpy(cli->name, name);
+        sprintf(buffer, "> %s has joined\n", cli->name);
+        printf("%s", buffer);
+
+        bzero(buffer, BUFFER_SZ);
+        sprintf(buffer, "ok");
+        send_message(buffer, cli->uid);
+    }
+
+    bzero(buffer, BUFFER_SZ);
+
+    while(leave_flag == 0)
+    {
+        command[0] = '\x00';
+        number = 0;
+
+        int receive = recv(cli->sockfd, buffer, BUFFER_SZ, 0);
+
+        if (receive > 0)
         {
-            printf("Player disconnected.\n");
-            break;
-        }
-        else if (move == 9)
+            if (strlen(buffer) > 0)
+            {
+                // send_message(buffer, cli->uid);
+                trim_lf(buffer, strlen(buffer));
+                printf("> client: '%s' has been send '%s' command\n", cli->name, buffer);
+                sscanf(buffer, "%s %i", &command[0], &number);
+
+                if (strcmp(buffer, "create") == 0 || strcmp(buffer, "create rank") == 0  ) 
+                {
+                    flag = 0;
+                    
+                    pthread_mutex_lock(&rooms_mutex);
+
+                    for (int i = 0; i < MAX_ROOMS; i++) 
+                    {
+                        if (rooms[i])
+                        {
+                            if (rooms[i]->player1->uid == cli->uid)
+                            {
+                                bzero(buffer, BUFFER_SZ);
+                                sprintf(buffer, "[SERVER] you are already in the room\n");
+                                send_message(buffer, cli->uid);
+                                flag = 1;
+                                break;
+                            }
+
+                            if (rooms[i]->player2 != 0)
+                            {
+                                if (rooms[i]->player2->uid == cli->uid)
+                                {
+                                    bzero(buffer, BUFFER_SZ);
+                                    sprintf(buffer, "[SERVER] you are already in the room\n");
+                                    send_message(buffer, cli->uid);
+                                    flag = 1;
+                                    break;
+                                }
+                            }
+                        }
+                    } 
+
+                    pthread_mutex_unlock(&rooms_mutex);
+
+                    if (flag != 1) {
+                        // clients settings
+                        room_t *room = (room_t *)malloc(sizeof(room_t));
+                        room->player1 = cli;
+                        room->player2 = 0;
+                        room->uid = roomUid;
+                        if(strcmp(buffer, "create") == 0){
+                            strcpy(room->roomType,"[NORMAL] ");
+                        }else strcpy(room->roomType,"[RANK] ");
+                        strcpy(room->state,room->roomType);
+                        strcat(room->state, "waiting for secound player");
+
+                        // add room to queue
+                        queue_add_room(room);
+                        bzero(buffer, BUFFER_SZ);
+                        sprintf(buffer, "[SERVER] you created a new room number %i\n", roomUid);
+                        send_message(buffer, cli->uid);
+                        roomUid++;
+                    }
+                }
+                
+                
+                // random 
+                else if (strcmp(command, "join") == 0)
+                {
+                    int researched = 0;
+                    int already = 0;
+                    pthread_mutex_lock(&rooms_mutex);
+
+                    for (int j = 0; j < MAX_ROOMS; j++) 
+                    {
+                        if (rooms[j])
+                        {
+                            if (rooms[j]->player1->uid == cli->uid) 
+                            {
+                                already = 1;
+
+                                bzero(buffer, BUFFER_SZ);
+                                sprintf(buffer, "[SERVER] you are already in the room number: %i\n", rooms[j]->uid);
+                                send_message(buffer, cli->uid);
+                                break;
+                            }
+                        }
+                    }
+
+                    pthread_mutex_unlock(&rooms_mutex);
+
+                    if (already == 1)
+                    {
+                        continue;
+                    }
+
+                    pthread_mutex_lock(&rooms_mutex);
+
+                    for (int i = 0; i < MAX_ROOMS; i++) 
+                    {
+                        if (rooms[i])
+                        {
+                            if (rooms[i]->uid == number)
+                            {
+                                researched = 1;
+
+                                if (rooms[i]->player2 != 0)
+                                {
+                                    if (rooms[i]->player2->uid == cli->uid)
+                                    {
+                                        bzero(buffer, BUFFER_SZ);
+                                        send_message("[SERVER] you are already in the room\n", cli->uid);
+                                        break;
+                                    }
+
+                                    bzero(buffer, BUFFER_SZ);
+                                    sprintf(buffer, "[SERVER] room number: %i, is already full\n", rooms[i]->uid);
+                                    send_message(buffer, cli->uid);
+                                    break;
+                                }
+
+                                rooms[i]->player2 = cli;
+                                 
+                                strcpy(rooms[i]->state, rooms[i]->roomType);
+                                strcat(rooms[i]->state, "waiting start");
+                                bzero(buffer, BUFFER_SZ);
+                                printf("%s enter the room number: %i\n", cli->name, number);
+                                sprintf(buffer, "[SERVER] '%s' entered your room\n", cli->name);
+                                send_message(buffer, rooms[i]->player1->uid);
+
+                                bzero(buffer, BUFFER_SZ);
+                                sprintf(buffer, "[SERVER] you has entered the room number: %i\n", number);
+                                send_message(buffer, cli->uid);
+                                break;
+                            }
+                        }
+                    }
+
+                    pthread_mutex_unlock(&rooms_mutex);
+
+                    if (researched == 0)
+                    {
+                        sprintf(buffer, "[SERVER] could not find the room number %i\n", number);
+                        send_message(buffer, cli->uid);
+                    }
+                }
+                else if (strcmp(command, "list") == 0)
+                {
+                    pthread_mutex_lock(&rooms_mutex);
+
+                    for (int i = 0; i < MAX_ROOMS; i++) 
+                    {
+                        if (rooms[i])
+                        {
+                            char *list = (char *)malloc(BUFFER_SZ*sizeof(char)); 
+
+                            if (rooms[i]->player2 != 0)
+                            {
+                                sprintf(list, "%i)\n    room state: %s  \n    player1: %s - elo: %d\n    player2: %s - elo: %d\n", rooms[i]->uid, rooms[i]->state, rooms[i]->player1->name,rooms[i]->player1->elo, rooms[i]->player2->name,rooms[i]->player2->elo);
+                            }
+                            else
+                            {
+                                sprintf(list, "%i)\n    room state: %s \n    player1: %s - elo: %d\n", rooms[i]->uid, rooms[i]->state, rooms[i]->player1->name,rooms[i]->player1->elo);
+                            }
+
+                            send_message(list, cli->uid);
+                            free(list);
+                        }
+                    } 
+
+                    pthread_mutex_unlock(&rooms_mutex);
+                }
+                else if (strcmp(command, "leave") == 0)
+                {
+                    int remove_room = 0;
+                    int room_number = 0;
+
+                    pthread_mutex_lock(&rooms_mutex);
+
+                    for (int i = 0; i < MAX_ROOMS; i++) 
+                    {
+                        if (rooms[i])
+                        {
+                            if (rooms[i]->player1->uid == cli->uid) 
+                            {
+                                if (rooms[i]->player2 != 0) {
+                                    bzero(buffer, BUFFER_SZ);
+                                    sprintf(buffer, "[SERVER] %s left the room, now you are the owner\n", rooms[i]->player1->name);
+                                    send_message(buffer, rooms[i]->player2->uid);
+
+                                    rooms[i]->player1 = rooms[i]->player2;
+                                    rooms[i]->player2 = 0;
+                                    strcpy(rooms[i]->state,rooms[i]->roomType);
+                                    strcat(rooms[i]->state, "waiting for secound player");
+                                }
+                                else
+                                {
+                                    remove_room = 1;
+                                    room_number = rooms[i]->uid;
+                                }
+
+                                bzero(buffer, BUFFER_SZ);
+                                sprintf(buffer, "[SERVER] you left the room %i\n", rooms[i]->uid);
+                                send_message(buffer, cli->uid);
+                                break;
+                            }
+                            else if (rooms[i]->player2->uid == cli->uid)
+                            {
+                                bzero(buffer, BUFFER_SZ);
+                                sprintf(buffer, "[SERVER] %s left the room\n", rooms[i]->player1->name);
+                                send_message(buffer, rooms[i]->player1->uid);
+
+                                rooms[i]->player2 = 0;
+                                 strcpy(rooms[i]->state,rooms[i]->roomType);
+                                    strcat(rooms[i]->state, "waiting for secound player");
+
+                                bzero(buffer, BUFFER_SZ);
+                                sprintf(buffer, "[SERVER] you left the room %i\n", rooms[i]->uid);
+                                send_message(buffer, cli->uid);
+                                break;
+                            }
+                        }
+                    }
+
+                    pthread_mutex_unlock(&rooms_mutex);
+
+                    if (remove_room == 1)
+                    {
+                        queue_remove_room(room_number);
+                        roomUid--;
+                    }
+                }
+                else if (strcmp(command, "start") == 0)
+                {
+                    int startgame = 0;
+                    room_t *room_game;
+                    
+                    pthread_mutex_lock(&rooms_mutex);
+
+                    for (int j = 0; j < MAX_ROOMS; j++) 
+                    {
+                        if (rooms[j])
+                        {
+                            if (rooms[j]->player1->uid == cli->uid) 
+                            {
+                                if (rooms[j]->player2 != 0)
+                                {
+                                    startgame = 1;
+                                    room_game = rooms[j];
+                                    break;
+                                }
+
+                                bzero(buffer, BUFFER_SZ);
+                                sprintf(buffer, "[SERVER] 2 players are required to start the game\n");
+                                send_message(buffer, cli->uid);
+                                break;
+                            }
+                            else if (rooms[j]->player2->uid == cli->uid)
+                            {
+                                bzero(buffer, BUFFER_SZ);
+                                sprintf(buffer, "[SERVER] only the owner of the room can start\n");
+                                send_message(buffer, cli->uid);
+                                break;
+                            }
+                        }
+                    }
+
+                    pthread_mutex_unlock(&rooms_mutex);
+
+                    if (startgame == 1) {
+                        room_game->game = (game_t *)malloc(sizeof(game_t));  
+                        room_game->game->estadoDeJogo = 1;
+                        room_game->game->rodada = 0;
+                        room_game->game->turnoDoJogador = room_game->player1->uid;
+                        strcpy(room_game->state,room_game->roomType);
+
+                        strcat(room_game->state, "playing now");
+
+                        for (int linha = 0; linha < 3; linha++)
+                        {
+                            for (int coluna = 0; coluna < 3; coluna++)
+                            {
+                                room_game->game->tabuleiro[linha][coluna] = '-';
+                            }
+                        }
+
+                        sleep(1);
+                        
+                        bzero(buffer, BUFFER_SZ); 
+                        sprintf(buffer, "start game\n");
+                        send_message(buffer, room_game->player1->uid);
+
+                        sleep(0.1);
+
+                        bzero(buffer, BUFFER_SZ);
+                        sprintf(buffer, "start game2\n");
+                        send_message(buffer, room_game->player2->uid);
+
+                        sleep(1);
+
+                        bzero(buffer, BUFFER_SZ);
+                        sprintf(buffer, "%s\n", room_game->player2->name);
+                        send_message(buffer, room_game->player1->uid);
+
+                        sleep(0.1);
+
+                        bzero(buffer, BUFFER_SZ);
+                        sprintf(buffer, "%s\n", room_game->player1->name);
+                        send_message(buffer, room_game->player2->uid);
+
+                        sleep(1);
+
+                        bzero(buffer, BUFFER_SZ);
+                        sprintf(buffer, "vez1\n");
+                        send_message(buffer, room_game->player1->uid);
+
+                        sleep(0.2);
+
+                        bzero(buffer, BUFFER_SZ);
+                        sprintf(buffer, "vez2\n");
+                        send_message(buffer, room_game->player2->uid);
+                    }
+                }
+                else if (strcmp(command, "play") == 0)
+                {
+                    pthread_mutex_lock(&rooms_mutex);
+
+                    for (int j = 0; j < MAX_ROOMS; j++) 
+                    {
+                        if (rooms[j])
+                        {
+                            if (rooms[j]->player1->uid == cli->uid || rooms[j]->player2->uid == cli->uid) 
+                            {
+                                if (rooms[j]->game->estadoDeJogo == 0)
+                                {
+                                    bzero(buffer, BUFFER_SZ);
+                                    sprintf(buffer, "[SERVER] game over\n");
+                                    send_message(buffer, cli->uid);
+                                    break;
+                                }
+
+                                setbuf(stdin, 0);
+                                bzero(buffer, BUFFER_SZ);
+                                sprintf(buffer, "%i", number);
+
+                                int linhaJogada = posicoes[number - 1][0];
+                                int colunaJogada = posicoes[number - 1][1];
+                                if (rooms[j]->game->turnoDoJogador == rooms[j]->player1->uid)
+                                {
+                                    send_message(buffer, rooms[j]->player2->uid);
+                                    rooms[j]->game->tabuleiro[linhaJogada][colunaJogada] = 'X';
+                                    rooms[j]->game->turnoDoJogador = rooms[j]->player2->uid;
+                                } 
+                                else if (rooms[j]->game->turnoDoJogador == rooms[j]->player2->uid)
+                                {
+                                    send_message(buffer, rooms[j]->player1->uid);
+                                    rooms[j]->game->tabuleiro[linhaJogada][colunaJogada] = 'O';
+                                    rooms[j]->game->turnoDoJogador = rooms[j]->player1->uid;
+                                }
+
+                                for (int iterator = 0; iterator < 3; iterator++)
+                                {
+                                    if (
+                                        (
+                                            (rooms[j]->game->tabuleiro[iterator][0] == rooms[j]->game->tabuleiro[iterator][1]) && (rooms[j]->game->tabuleiro[iterator][1] == rooms[j]->game->tabuleiro[iterator][2]) && rooms[j]->game->tabuleiro[iterator][0] != '-'
+                                        )
+                                            ||
+                                        (
+                                            (rooms[j]->game->tabuleiro[0][iterator] == rooms[j]->game->tabuleiro[1][iterator]) && (rooms[j]->game->tabuleiro[1][iterator] == rooms[j]->game->tabuleiro[2][iterator]) && rooms[j]->game->tabuleiro[0][iterator] != '-'
+                                        )
+                                    )
+                                    {
+                                        rooms[j]->game->estadoDeJogo = 0;
+                                    }
+                                }
+
+                                if (
+                                    (
+                                        (rooms[j]->game->tabuleiro[0][0] == rooms[j]->game->tabuleiro[1][1]) && (rooms[j]->game->tabuleiro[1][1] == rooms[j]->game->tabuleiro[2][2]) && rooms[j]->game->tabuleiro[0][0] != '-'
+                                    )
+                                        ||
+                                    (
+                                        (rooms[j]->game->tabuleiro[0][2] == rooms[j]->game->tabuleiro[1][1]) && (rooms[j]->game->tabuleiro[1][1] == rooms[j]->game->tabuleiro[2][0]) && rooms[j]->game->tabuleiro[0][2] != '-'
+                                    )
+                                )
+                                {
+                                    rooms[j]->game->estadoDeJogo = 0;
+                                }
+
+                                sleep(1);
+
+                                if (rooms[j]->game->estadoDeJogo == 0)
+                                {   
+                                    strcpy(rooms[j]->state,rooms[j]->roomType);
+                                    strcat(rooms[j]->state, "waiting start");
+
+                                    if (rooms[j]->game->turnoDoJogador == rooms[j]->player1->uid)
+                                    {
+                                        bzero(buffer, BUFFER_SZ);
+                                        sprintf(buffer, "win1\n");
+                                        send_message(buffer, rooms[j]->player1->uid);
+
+                                        sleep(0.5);
+
+                                        send_message(buffer, rooms[j]->player2->uid);
+                                    }
+                                    else if (rooms[j]->game->turnoDoJogador == rooms[j]->player2->uid)
+                                    {
+                                        bzero(buffer, BUFFER_SZ);
+                                        sprintf(buffer, "win2\n");
+                                        send_message(buffer, rooms[j]->player1->uid);
+
+                                        sleep(0.5);
+
+                                        send_message(buffer, rooms[j]->player2->uid);
+                                    }
+
+                                    bzero(buffer, BUFFER_SZ);
+                                    sprintf(buffer, "ok");
+                                    send_message(buffer, rooms[j]->player1->uid);
+
+                                    sleep(0.5);
+
+                                    send_message(buffer, rooms[j]->player2->uid);
+                                    break;
+                                }
+
+                                if (rooms[j]->game->turnoDoJogador == rooms[j]->player1->uid)
+                                {
+                                    bzero(buffer, BUFFER_SZ);
+                                    sprintf(buffer, "vez1\n");
+                                    send_message(buffer, rooms[j]->player1->uid);
+
+                                    sleep(0.5);
+
+                                    bzero(buffer, BUFFER_SZ);
+                                    sprintf(buffer, "vez2\n");
+                                    send_message(buffer, rooms[j]->player2->uid);
+                                }
+                                else if (rooms[j]->game->turnoDoJogador == rooms[j]->player2->uid)
+                                {
+                                    bzero(buffer, BUFFER_SZ);
+                                    sprintf(buffer, "vez2\n");
+                                    send_message(buffer, rooms[j]->player1->uid);
+
+                                    sleep(0.5);
+
+                                    bzero(buffer, BUFFER_SZ);
+                                    sprintf(buffer, "vez1\n");
+                                    send_message(buffer, rooms[j]->player2->uid);
+                                }
+
+                                rooms[j]->game->rodada++;
+                            }
+                            break;
+                        }
+                    }
+
+                    pthread_mutex_unlock(&rooms_mutex);
+                }
+            }
+        }    
+        else if (receive == 0 || strcmp(buffer, "exit") == 0)
         {
-            prev_player_turn = player_turn;
-            send_player_count(cli_sockfd[player_turn]);
+            sprintf(buffer, "%s has left\n", cli->name);
+            printf("%s", buffer);
+            // send_message(buffer, cli->uid);
+            leave_flag = 1;
         }
         else
         {
-            update_board(board, move, player_turn);
-            send_update(cli_sockfd, move, player_turn);
-
-            draw_board(board);
-
-            game_over = check_board(board, move);
-
-            if (game_over == 1)
-            {
-                write_client_msg(cli_sockfd[player_turn], "WIN");
-                write_client_msg(cli_sockfd[(player_turn + 1) % 2], "LSE");
-                printf("Player %d won.\n", player_turn);
-            }
-            else if (turn_count == 8)
-            {
-                printf("Draw.\n");
-                write_clients_msg(cli_sockfd, "DRW");
-                game_over = 1;
-            }
-
-            prev_player_turn = player_turn;
-            player_turn = (player_turn + 1) % 2;
-            turn_count++;
+            printf("ERROR: -1\n");
+            leave_flag = 1;
         }
+
+        bzero(buffer, BUFFER_SZ);
     }
 
-    printf("Game over.\n");
+    bzero(buffer, BUFFER_SZ);
+    sprintf(buffer, "bye");
+    send_message(buffer, cli->uid);
 
-    close(cli_sockfd[0]);
-    close(cli_sockfd[1]);
+    close(cli->sockfd);
+    queue_remove_client(cli->uid);
+    free(cli);
+    cli_count--;
+    pthread_detach(pthread_self());
 
-    pthread_mutex_lock(&mutexcount);
-    player_count--;
-    printf("Number of players is now %d.", player_count);
-    player_count--;
-    printf("Number of players is now %d.", player_count);
-    pthread_mutex_unlock(&mutexcount);
-
-    free(cli_sockfd);
-
-    pthread_exit(NULL);
+    return NULL;
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char **argv)
 {
-    if (argc < 2)
-    {
-        fprintf(stderr, "ERROR, no port provided\n");
-        exit(1);
+    if (argc != 2) {
+        printf("Usage: %s <port>\n", argv[0]);
+        return EXIT_FAILURE;
     }
 
-    int lis_sockfd = setup_listener(atoi(argv[1]));
-    pthread_mutex_init(&mutexcount, NULL);
+    char *ip = "127.0.0.1";
+    int port = atoi(argv[1]);
 
-    while (1)
-    {
-        if (player_count <= 252)
-        {
-            int *cli_sockfd = (int *)malloc(2 * sizeof(int));
-            memset(cli_sockfd, 0, 2 * sizeof(int));
+    int option = 1;
+    int listenfd = 0, connfd = 0;
+    struct sockaddr_in serv_addr;
+    struct sockaddr_in cli_addr;
+    pthread_t tid;
 
-            get_clients(lis_sockfd, cli_sockfd);
+    // Socket settings
+    listenfd = socket(AF_INET, SOCK_STREAM, 0);
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = inet_addr(ip);
+    serv_addr.sin_port = htons(port);
 
-            printf("[DEBUG] Starting new game thread...\n");
+    // Signals
+    signal(SIGPIPE, SIG_IGN);
 
-            pthread_t thread;
-            int result = pthread_create(&thread, NULL, run_game, (void *)cli_sockfd);
-            if (result)
-            {
-                printf("Thread creation failed with return code %d\n", result);
-                exit(-1);
-            }
+    if (setsockopt(listenfd, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR), (char*)&option, sizeof(option)) < 0) {
+        printf("ERROR: setsockopt\n");
+        return EXIT_FAILURE;
+    }
 
-            printf("[DEBUG] New game thread started.\n");
+    if (bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+        printf("Error bind\n");
+        return EXIT_FAILURE;
+    }
+
+    // listen
+    if (listen(listenfd, 10) < 0) {
+        printf("ERROR: listen\n");
+        return EXIT_FAILURE;
+    }
+
+    flashScreen();
+
+    printf("############################################");
+    printf("\n# Tic-Tac-Toe Server running on port: %i #", port);
+    printf("\n############################################\n\n");
+
+    while(1) {
+        socklen_t clilen = sizeof(cli_addr);
+        connfd = accept(listenfd, (struct sockaddr*)&cli_addr, &clilen);
+
+        // check dor max clients
+        if ((cli_count + 1) == MAX_CLIENTS) {
+            printf("Maximun of clients are connected, Connection rejected");
+            close(connfd);
+            continue;
         }
+
+        // clients settings
+        client_t *cli = (client_t *)malloc(sizeof(client_t));
+        cli->address = cli_addr;
+        cli->sockfd = connfd;
+        cli->uid = uid++;
+
+        // add client to queue
+        queue_add_client(cli);
+        pthread_create(&tid, NULL, &handle_client, (void*)cli);
+
+        // reduce CPU usage
+        sleep(1);
     }
-
-    close(lis_sockfd);
-
-    pthread_mutex_destroy(&mutexcount);
-    pthread_exit(NULL);
+    
+    return EXIT_SUCCESS;
 }
