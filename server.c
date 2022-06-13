@@ -14,6 +14,7 @@
 #include <sys/types.h>
 
 #include "customSTD.h"
+#include <math.h>
 
 #define MAX_CLIENTS 10
 #define MAX_ROOMS 5
@@ -25,7 +26,7 @@ static int uid = 10;
 static int roomUid = 1;
 
 int posicoes[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
-
+int firstElo, secondElo;
 // client structure
 typedef struct {
     struct sockaddr_in address;
@@ -82,6 +83,33 @@ void send_message(char *message, int uid)
     pthread_mutex_unlock(&clients_mutex);
 }
 int i=0;
+
+float Probability(int rating1, int rating2)
+{
+    return 1.0 * 1.0 / (1 + 1.0 *
+           pow(10, 1.0 * (rating1 - rating2) / 400));
+}
+ 
+void EloRating(int Ra, int Rb, int K, int d)
+{ 
+    float Pb = Probability(Ra, Rb);
+
+    float Pa = Probability(Rb, Ra);
+ 
+    int a, b;
+    if (d == 1) {
+        firstElo = Ra + K * (1 - Pa);
+        secondElo = Rb + K * (0 - Pb);
+    }
+ 
+    else {
+        firstElo = Ra + K * (0 - Pa);
+        secondElo = Rb + K * (1 - Pb);
+    }
+    /*fflush(stdout);
+    printf( "Ra = %d Rb = %d", Ra,Rb );*/
+}
+ 
 void *handle_client(void *arg)
 {
     char buffer[BUFFER_SZ];
@@ -510,6 +538,8 @@ void *handle_client(void *arg)
                                 }
 
                                 sleep(1);
+                                    char append[13]; //New variable
+                                    char filename[81];
 
                                 if (rooms[j]->game->estadoDeJogo == 0)
                                 {
@@ -518,7 +548,11 @@ void *handle_client(void *arg)
                                     if (rooms[j]->game->turnoDoJogador == rooms[j]->player1->uid)
                                     {
                                         bzero(buffer, BUFFER_SZ);
-                                        sprintf(buffer, "win1\n");
+                                        EloRating(rooms[j]->player1->elo, rooms[j]->player2->elo, 30, 1);
+                                            sprintf(append,"%d",firstElo); // put the int into a string
+                                        sprintf(buffer, strcat(append,"|win1|"));
+
+
                                         send_message(buffer, rooms[j]->player1->uid);
 
                                         sleep(0.5);
@@ -528,7 +562,14 @@ void *handle_client(void *arg)
                                     else if (rooms[j]->game->turnoDoJogador == rooms[j]->player2->uid)
                                     {
                                         bzero(buffer, BUFFER_SZ);
-                                        sprintf(buffer, "win2\n");
+
+                                       EloRating(rooms[j]->player1->elo, rooms[j]->player2->elo, 30, 0);
+
+                                        sprintf(append,"%d",secondElo); // put the int into a string
+                                        sprintf(buffer, strcat(append,"|win2|"));
+
+ 
+
                                         send_message(buffer, rooms[j]->player1->uid);
 
                                         sleep(0.5);
@@ -597,6 +638,8 @@ void *handle_client(void *arg)
         bzero(buffer, BUFFER_SZ);
     }
 
+
+
     bzero(buffer, BUFFER_SZ);
     sprintf(buffer, "bye");
     send_message(buffer, cli->uid);
@@ -634,11 +677,11 @@ int main(int argc, char **argv)
 
     // Signals
     signal(SIGPIPE, SIG_IGN);
-
+/*
     if (setsockopt(listenfd, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR), (char*)&option, sizeof(option)) < 0) {
         printf("ERROR: setsockopt\n");
         return EXIT_FAILURE;
-    }
+    }*/
 
     if (bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
         printf("Error bind\n");

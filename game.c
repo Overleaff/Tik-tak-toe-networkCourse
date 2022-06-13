@@ -90,6 +90,19 @@ void *lobby(void *arg);
 
 void recv_msg_handler();
 
+char winState[100]="";
+char updatedElo[100]="";
+void split(char a[100]){
+    char * token = strtok(a, "|");
+
+      //printf( " %s\n", token );
+      strcat(updatedElo, token);
+      token = strtok(NULL, "|");
+        strcat(winState, token);
+        token = strtok(NULL, "|");
+
+}
+
 void *multiplayerGame(void *arg)
 {
     int turnoDoJogador;
@@ -115,6 +128,7 @@ void *multiplayerGame(void *arg)
     char message[BUFFER_SZ] = {};
 
     int receive = recv(sockfd, message, BUFFER_SZ, 0);
+    
 
     if (receive > 0) {
         setbuf(stdin, 0);
@@ -258,15 +272,16 @@ void *multiplayerGame(void *arg)
             setbuf(stdout, 0);
 
             showBoard(tabuleiro, (char *)&errorMessage);
+            split(message);
+            //printf("\nPlayer '%s' win!\nUpdated elo: '%s'", winState,updatedElo);
 
-
-            if (strcmp(message, "win1\n") == 0)
-            {
-                printf("\nPlayer '%s' win!", nomeJogadorAtual);
+            if (strcmp(winState, "win1") == 0)
+            {   
+                printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nomeJogadorAtual,updatedElo);
             }
-            else if (strcmp(message, "win2\n") == 0)
+            else if (strcmp(winState, "win2") == 0)
             {
-                printf("\nPlayer '%s' win!", nomeJogadorAtual);
+                printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nomeJogadorAtual,updatedElo);
             }
 
             printf("\nEnd of the game!\n");
