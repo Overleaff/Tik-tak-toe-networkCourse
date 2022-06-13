@@ -18,25 +18,29 @@
 
 #define MAX_CLIENTS 10
 #define MAX_ROOMS 5
-#define BUFFER_SZ 2048
+#define BUFFER_SZ 1000
 #define NAME_LEN 64
 int uid = 10;
 int roomUid = 1;
 // client structure
+int posicoes[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
+// chua check invalid move
+
+// client structure
 typedef struct
 {
-    struct sockaddr_in address;
+    elementtype userInfo;
     int sockfd;
     int uid;
-    char name[NAME_LEN];
+    
 } client_t;
 
 typedef struct
 {
-    char tabuleiro[3][3];
-    int estadoDeJogo;
-    int rodada;
-    int turnoDoJogador;
+    char board[3][3];
+    int gameStatus;
+    int round;
+    int playerTurn;
 } game_t;
 
 // room structure
@@ -56,6 +60,7 @@ pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t rooms_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #include "queueManager.h"
+
 char *getCommand(char *msg)
 {
     char command[20];
@@ -72,12 +77,37 @@ char *getCommand(char *msg)
     command[count] = '\0';
     return command;
 }
+// send resposne
+int send_message(response res, int uid)
+{   int flag =0;
+    pthread_mutex_lock(&clients_mutex);
+    
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if (clients[i])
+        {
+            if (clients[i]->uid == uid)
+            {
+                if (write(clients[i]->sockfd, &res, sizeof(res)) < 0)
+                {
+                    printf("ERROR: write to descriptor failed\n");
+                    flag=0;
+                    break;
+                }else flag=1;
+            }
+        }
+    }
 
-int checkRecvMsg(char buffer[1000], int newSocket)
-{
+    pthread_mutex_unlock(&clients_mutex);
+    return flag;
+}
+
+int checkRecvMsg(char buffer[1000], int newSocket,client_t *cli)
+{   
+    int flag;
     int byte_sent, byte_recv;
     int retry;
-
+    
     userLogin userInfo; /*User login information*/
     response res;       /*Response message*/
     char *p;
@@ -150,6 +180,8 @@ int checkRecvMsg(char buffer[1000], int newSocket)
                 {
                     p->element.status = 1;
                     // strcpy(p->element.ip, ip);
+                    cli->userInfo = ( p->element);
+                    printf("%s", cli->userInfo.name);
                     fl = 0;
                     break;
                 }
@@ -195,6 +227,7 @@ int checkRecvMsg(char buffer[1000], int newSocket)
             if (strcmp(us, p->element.name) == 0)
             {
                 p->element.status = 0;
+              
             }
         }
         traversingList(root);
@@ -247,50 +280,354 @@ int checkRecvMsg(char buffer[1000], int newSocket)
     }
     if (strcmp(p, "START_GAME") == 0)
     {
-
+        
+    
         res.status = 200;
-
         strcpy(res.message, "START");
-
         byte_sent = send(newSocket, &res, sizeof(res), 0);
-
+        
         return Check_Send(byte_sent);
     }
-    if (strcmp(p, "WAIT") == 0)
+    if (strcmp(p, "start") == 0)
     {
+        int startgame = 0;
+        room_t *room_game;
+        
+        pthread_mutex_lock(&rooms_mutex);
 
-        sleep(5);
-
-        char us[100];
-        strcpy(us, strtok(NULL, "|"));
-        char *ans = getNumberActive(us);
-        res.status = 200;
-        if (ans == NULL)
+        for (int j = 0; j < MAX_ROOMS; j++)
         {
-            strcpy(res.message, "WAIT TIMEOUT");
+            if (rooms[j])
+            {
+                if (rooms[j]->player1->uid == cli->uid)
+                {
+                    if (rooms[j]->player2 != 0)
+                    {
+                        startgame = 1;
+                        room_game = rooms[j];
+                        break;
+                    }
+
+                    res.status=400;
+                    sprintf(res.message, "[SERVER] 2 players are required to start the game\n");
+                    byte_sent=send_message(res, cli->uid);
+                    break;
+                }
+                else if (rooms[j]->player2->uid == cli->uid)
+                {
+                    res.status=400;
+                    sprintf(res.message, "[SERVER] only the owner of the room can start\n");
+                    byte_sent=send_message(res, cli->uid);
+                    break;
+                }
+            }
         }
-        else
+
+        pthread_mutex_unlock(&rooms_mutex);
+
+        if (startgame == 1)
         {
-            char str[100] = "invite|";
-            strcat(str, ans);
-            strcat(str, "|");
-            strcpy(res.message, str);
+            room_game->game = (game_t *)malloc(sizeof(game_t));
+            room_game->game->gameStatus = 1;
+            room_game->game->round = 0;
+            room_game->game->playerTurn = room_game->player1->uid;
+            strcpy(room_game->state, "playing now");
+
+            for (int linha = 0; linha < 3; linha++)
+            {
+                for (int coluna = 0; coluna < 3; coluna++)
+                {
+                    room_game->game->board[linha][coluna] = '-';
+                }
+            }
+
+            sleep(1);
+
+            res.status=200;
+            sprintf(res.message, "start game\n");
+            byte_sent = send_message(res, room_game->player1->uid);
+
+            sleep(0.1);
+
+            res.status = 200;
+            sprintf(res.message, "start game2\n");
+            byte_sent = send_message(res, room_game->player2->uid);
+
+            sleep(1);
+
+            res.status = 200;
+            bzero(res.message, BUFFER_SZ);
+            sprintf(res.message, "%s\n", room_game->player2->userInfo.name);
+            byte_sent = send_message(res, room_game->player1->uid);
+
+            sleep(0.1);
+
+            res.status = 200;
+            bzero(res.message, BUFFER_SZ);
+            sprintf(res.message, "%s\n", room_game->player1->userInfo.name);
+            byte_sent = send_message(res, room_game->player2->uid);
+
+            sleep(1);
+
+            res.status = 200;
+            bzero(res.message, BUFFER_SZ);
+            sprintf(res.message, "vez1\n");
+            byte_sent = send_message(res, room_game->player1->uid);
+
+            sleep(0.2);
+
+            res.status = 200;
+            bzero(res.message, BUFFER_SZ);
+            sprintf(res.message, "vez2\n");
+            byte_sent=send_message(res, room_game->player2->uid);
         }
-
-        byte_sent = send(newSocket, &res, sizeof(res), 0);
-
-        return Check_Send(byte_sent);
+        return byte_sent;
     }
-    // wait for other to log in to start a game
-    return 0;
-}
+        if (strcmp(p, "list") == 0)
+        {
+            strcpy(res.message, "");
+            pthread_mutex_lock(&rooms_mutex);
 
-void *serverthread(void *client_socket)
+            for (int i = 0; i < MAX_ROOMS; i++)
+            {
+                if (rooms[i])
+                {
+                    char *list = (char *)malloc(BUFFER_SZ * sizeof(char));
+
+                    if (rooms[i]->player2 != 0)
+                    {
+                        sprintf(list, "%i)\n    room state: %s\n    player1: %s\n    player2: %s\n", rooms[i]->uid, rooms[i]->state, rooms[i]->player1->userInfo.name, rooms[i]->player2->userInfo.name);
+                    }
+                    else
+                    {
+                        sprintf(list, "%i)\n    room state: %s\n    player1: %s\n", rooms[i]->uid, rooms[i]->state, rooms[i]->player1->userInfo.name);
+                    }
+
+                    strcat(res.message, list);
+
+                    free(list);
+                }
+            }
+
+            pthread_mutex_unlock(&rooms_mutex);
+            res.status = 200;
+            byte_sent = send_message(res, cli->uid);
+            return byte_sent;
+        }
+
+        if (strcmp(p, "create") == 0)
+        {
+            flag = 0;
+
+            pthread_mutex_lock(&rooms_mutex);
+
+            for (int i = 0; i < MAX_ROOMS; i++)
+            {
+                if (rooms[i])
+                {
+                    if (rooms[i]->player1->uid == cli->uid)
+                    {
+                        res.status = 400;
+                        sprintf(res.message, "[SERVER] you are already in the room\n");
+                        byte_sent = send_message(res, cli->uid);
+                        flag = 1;
+                        break;
+                    }
+
+                    if (rooms[i]->player2 != 0)
+                    {
+                        if (rooms[i]->player2->uid == cli->uid)
+                        {
+                            res.status = 400;
+                            sprintf(res.message, "[SERVER] you are already in the room\n");
+                            byte_sent = send_message(res, cli->uid);
+                            flag = 1;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            pthread_mutex_unlock(&rooms_mutex);
+
+            if (flag != 1)
+            {
+                // clients settings
+                room_t *room = (room_t *)malloc(sizeof(room_t));
+                room->player1 = cli;
+                room->player2 = 0;
+                room->uid = roomUid;
+                strcpy(room->state, "waiting for second player");
+
+                // add room to queue
+                queue_add_room(room);
+                res.status = 200;
+                sprintf(res.message, "[SERVER] you created a new room number %i\n", roomUid);
+                roomUid++;
+                byte_sent = send_message(res, cli->uid);
+            }
+            return byte_sent;
+        }
+        if (strcmp(p, "join") == 0)
+        {
+            char roomNumber[10];
+            strcpy(roomNumber, strtok(NULL, "|"));
+            int researched = 0;
+            int already = 0;
+            pthread_mutex_lock(&rooms_mutex);
+
+            for (int j = 0; j < MAX_ROOMS; j++)
+            {
+                if (rooms[j])
+                {
+                    if (rooms[j]->player1->uid == cli->uid)
+                    {
+                        already = 1;
+
+                        res.status = 400;
+                        sprintf(res.message, "[SERVER] you are already in the room number: %i\n", rooms[j]->uid);
+                        byte_sent = send_message(res, cli->uid);
+                        break;
+                    }
+                }
+            }
+
+            pthread_mutex_unlock(&rooms_mutex);
+
+            if (already == 1)
+            {
+                return byte_sent;
+            }
+
+            pthread_mutex_lock(&rooms_mutex);
+
+            for (int i = 0; i < MAX_ROOMS; i++)
+            {
+                if (rooms[i])
+                {
+                    if (rooms[i]->uid == atoi(roomNumber))
+                    {
+                        researched = 1;
+
+                        if (rooms[i]->player2 != 0)
+                        {
+                            if (rooms[i]->player2->uid == cli->uid)
+                            {
+                                res.status = 400;
+                                strcpy(res.message, "[SERVER] you are already in the room\n");
+                                byte_sent = send_message(res, cli->uid);
+                                break;
+                            }
+
+                            res.status = 400;
+                            sprintf(res.message, "[SERVER] room number: %i, is already full\n", rooms[i]->uid);
+                            byte_sent = send_message(res, cli->uid);
+                            break;
+                        }
+
+                        rooms[i]->player2 = cli;
+                        strcpy(rooms[i]->state, "waiting start");
+                        res.status = 200;
+                        printf("%s enter the room number: %s\n", cli->userInfo.name, roomNumber);
+                        sprintf(res.message, "[SERVER] '%s' entered your room\n", cli->userInfo.name);
+                        byte_sent = send_message(res, rooms[i]->player1->uid);
+
+                        res.status = 200;
+                        sprintf(res.message, "[SERVER] you has entered the room number: %s\n", roomNumber);
+                        byte_sent = send_message(res, cli->uid);
+                        break;
+                    }
+                }
+            }
+
+            pthread_mutex_unlock(&rooms_mutex);
+
+            if (researched == 0)
+            {
+                res.status = 200;
+                sprintf(res.message, "[SERVER] could not find the room number %s\n", roomNumber);
+                byte_sent = send_message(res, cli->uid);
+            }
+            return byte_sent;
+        }
+        if (strcmp(p, "leave") == 0)
+        {
+            int remove_room = 0;
+            int room_number = 0;
+
+            pthread_mutex_lock(&rooms_mutex);
+
+            for (int i = 0; i < MAX_ROOMS; i++)
+            {
+                if (rooms[i])
+                {
+                    if (rooms[i]->player1->uid == cli->uid)
+                    {
+                        if (rooms[i]->player2 != NULL)
+                        {
+                            res.status = 200;
+                            sprintf(res.message, "[SERVER] %s left the room, now you are the owner\n", rooms[i]->player1->userInfo.name);
+                            byte_sent = send_message(res, rooms[i]->player2->uid);
+
+                            rooms[i]->player1 = rooms[i]->player2;
+                            rooms[i]->player2 = NULL;
+                            strcpy(rooms[i]->state, "waiting for secound player");
+                        }
+                        else
+                        {
+                            remove_room = 1;
+                            room_number = rooms[i]->uid;
+                        }
+
+                        res.status = 200;
+                        sprintf(res.message, "[SERVER] you left the room %i\n", rooms[i]->uid);
+                        byte_sent = send_message(res, cli->uid);
+                        break;
+                    }
+                    else if (rooms[i]->player2->uid == cli->uid)
+                    {
+                        res.status = 200;
+                        sprintf(res.message, "[SERVER] %s left the room\n", rooms[i]->player1->userInfo.name);
+                        byte_sent = send_message(res, rooms[i]->player1->uid);
+
+                        rooms[i]->player2 = 0;
+                        strcpy(rooms[i]->state, "waiting for secound player");
+
+                        res.status = 200;
+                        sprintf(res.message, "[SERVER] you left the room %i\n", rooms[i]->uid);
+                        byte_sent = send_message(res, cli->uid);
+                        break;
+                    }
+                }
+            }
+
+            pthread_mutex_unlock(&rooms_mutex);
+
+            if (remove_room == 1)
+            {
+                queue_remove_room(room_number);
+                roomUid--;
+            }
+            return byte_sent;
+        }
+        // wait for other to log in to start a game
+        return 0;
+    }
+
+void *serverthread(void *arg)
 {
+    
 
+    char name[NAME_LEN];
+    int number;
+    int leave_flag = 0;
+    int flag = 0;
+    client_t *cli = (client_t *)arg;
+
+    elementtype userInfo;
     int check_status = 1;
     char buffer[1024];
-    int newSocket = *(int *)client_socket; /*Thread Socket descriptor*/
+    int newSocket = cli->sockfd; /*Thread Socket descriptor*/
     printf("Thread ID:%d\n", newSocket);
     traversingList(root);
 
@@ -316,7 +653,7 @@ void *serverthread(void *client_socket)
         buffer[byte_recv] = '\0';
         printf("CLient:%s\n", buffer);
 
-        if (checkRecvMsg(buffer, newSocket) <= 0)
+        if (checkRecvMsg(buffer, newSocket,cli) <= 0)
         {
             break;
         }
@@ -392,11 +729,15 @@ int main(int argc, char *argv[])
         {
             exit(1);
         }
-        if (pthread_create(&tid, NULL, serverthread, &newSocket) < 0)
-        {
-            printf("Cannot create thread");
-            break;
-        }
+
+        client_t *cli = (client_t *)malloc(sizeof(client_t));
+        
+        cli->sockfd = newSocket;
+        cli->uid = uid++;
+
+        // add client to queue
+        queue_add_client(cli);
+        pthread_create(&tid, NULL, serverthread, (void *)cli);
     }
     printf("End server");
     close(sockfd);

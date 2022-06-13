@@ -17,5 +17,5 @@ typedef struct protocol1
 typedef struct protocol2
 {
     int status;
-    char message[100];
+    char message[1000];
 } response;
