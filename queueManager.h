@@ -58,7 +58,7 @@ void queue_remove_room(int uid)
         {
             if (rooms[i]->uid == uid)
             {
-                rooms[i] = NULL;
+                rooms[i]=0;
             }
         }
     }

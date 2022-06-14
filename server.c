@@ -143,6 +143,19 @@ void *handle_client(void *arg)
                         strcpy(ele.pass, pass);
                         ele.elo = 1200;
                         ele.status = 0;
+                        char str[1000]="";
+                        char tmp[50];
+                    
+                        strcat(str,user);
+                        strcat(str, " ");
+                        strcat(str, pass);
+                        strcat(str," ");
+                        sprintf(tmp, "%d", ele.elo);
+                        strcat(str, tmp);
+                        strcat(str, " ");
+                        sprintf(tmp, "%d", ele.status);
+                        strcat(str, tmp);
+                        append(str);
 
                         insertAtHead2(ele);
                         traversingList2(root2);
@@ -152,7 +165,12 @@ void *handle_client(void *arg)
                     }
                 }
                 if (strstr(buffer, "LOGOUT"))
-                {
+                {  
+                    if(isLogin==0){
+                        bzero(buffer, BUFFER_SZ);
+                        sprintf(buffer, "Login First\n");
+                        send_message(buffer, cli->uid, 400);
+                    }else{
                     p = strtok(buffer, "|");
                     char us[100];
                     strcpy(us, strtok(NULL, "|"));
@@ -166,6 +184,9 @@ void *handle_client(void *arg)
                         if (strcmp(us, n->element.name) == 0)
                         {
                             n->element.status = 0;
+                            displayNode2(n);
+                            // TODO : luu data vaofile khi logout
+                           // saveData("database.txt",n->element);
                         }
                     }
                     traversingList2(root2);
@@ -173,10 +194,15 @@ void *handle_client(void *arg)
                     sprintf(buffer, "Logout Successful\n");
                     send_message(buffer, cli->uid, 200);
                     // TODO:save data vao file database
+                    }
                 }
                 if (strstr(buffer, "LOGIN"))
                 {
-
+                    if(isLogin==1){
+                        bzero(buffer, BUFFER_SZ);
+                        sprintf(buffer, "Already login.Logged out first\n");
+                        send_message(buffer, cli->uid, 400);
+                    }else{
                     int fl = 1;
                     userNode *n;
                     p = strtok(buffer, "|");
@@ -228,7 +254,9 @@ void *handle_client(void *arg)
                         sprintf(buffer, "Login failure\n");
                         send_message(buffer, cli->uid, 401);
                     }
+                    }
                 }
+
                 if (strcmp(buffer, "create") == 0 || strcmp(buffer, "create rank") == 0)
                 {
                     if (strcmp(buffer, "create rank") == 0 && isLogin == 0)
@@ -279,6 +307,7 @@ void *handle_client(void *arg)
                             room->player1 = cli;
                             room->player2 = 0;
                             room->uid = roomUid;
+                            printf("Roomid create:%d\n", room->uid);
                             if (strcmp(buffer, "create") == 0)
                             {
                                 strcpy(room->roomType, "[NORMAL] ");
@@ -410,7 +439,7 @@ void *handle_client(void *arg)
                     int room_number = 0;
 
                     pthread_mutex_lock(&rooms_mutex);
-
+                    printf("HEllo\n");
                     for (int i = 0; i < MAX_ROOMS; i++)
                     {
                         if (rooms[i])
@@ -429,7 +458,7 @@ void *handle_client(void *arg)
                                     strcat(rooms[i]->state, "waiting for secound player");
                                 }
                                 else
-                                {
+                                { // ko co ai
                                     remove_room = 1;
                                     room_number = rooms[i]->uid;
                                 }
@@ -458,11 +487,12 @@ void *handle_client(void *arg)
                     }
 
                     pthread_mutex_unlock(&rooms_mutex);
-
+                    printf("HEllo1235\n");
                     if (remove_room == 1)
                     {
+                        printf("Room delete:%d\n", room_number);
                         queue_remove_room(room_number);
-                         roomUid--;
+                        roomUid--;
                     }
                 }
                 else if (strcmp(command, "start") == 0)
@@ -779,13 +809,13 @@ int main(int argc, char **argv)
             close(connfd);
             continue;
         }
-
-        // clients settings
+        // printf("New connection:%d\n", connfd);
+        //  clients settings
         client_t *cli = (client_t *)malloc(sizeof(client_t));
         cli->address = cli_addr;
         cli->sockfd = connfd;
         cli->uid = uid++;
-
+        printf("Uid:%d\n", cli->uid);
         // add client to queue
         queue_add_client(cli);
         pthread_create(&tid, NULL, &handle_client, (void *)cli);

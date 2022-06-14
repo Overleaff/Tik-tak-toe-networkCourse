@@ -273,3 +273,52 @@ char * getNumberActive(char *yourName){
     }
     return NULL;
 } */
+void append(char *str){
+    // append to last line
+    FILE *fptr3;
+    int i, n;
+ 
+    char fname[20];
+
+      
+    printf("\n\n Append multiple lines at the end of a text file :\n");
+    printf("------------------------------------------------------\n");
+    printf(" Input the file name to be opened : ");
+
+    fptr3 = fopen("database.txt", "a");
+    printf(" Input the number of lines to be written : ");
+    // scanf("%d", &n);
+    printf(" The lines are : \n");
+
+     
+    fprintf(fptr3, "\n%s", str);
+
+    fclose(fptr3);
+}
+
+void saveData(char *filename,elementtype user)
+{
+    FILE *fp;
+    if ((fp = fopen(filename, "r")) == NULL)
+    {
+        printf("Cannot open.\n");
+        return 0;
+    }
+    elementtype tmp;
+    int i = 0;
+    int line = 0;
+    int found = 0;
+    while (fscanf(fp, "%s %s %d", tmp.name, tmp.pass, &tmp.elo) != EOF)
+    {
+        line = line + 1;
+        if (strcmp(user.name, tmp.name) == 0)
+        {
+           // fprintf(fp, "%s %s %d", tmp.name, tmp.pass, tmp.elo);
+           fprintf(fp, "tuan %s %d", tmp.pass, tmp.elo);
+           break;
+        }
+    }
+    fclose(fp);
+    
+
+}

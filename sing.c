@@ -6,7 +6,7 @@
 #define BUFFER_SIZE 1000
 int main()
 { 
-
+    
     //update file path
     int line = getLine("database.txt","tu");
     FILE *fPtr;

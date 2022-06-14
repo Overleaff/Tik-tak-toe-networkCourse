@@ -339,7 +339,7 @@ void *lobby(void *arg)
 
             memset(buffer, '\0', (strlen(buffer) + 1));
             strcpy(buffer, "LOGOUT|");
-            strcat(buffer, username);
+            strcat(buffer, name);
             strcat(buffer, "|");
             strcpy(username, "");
             str_overwrite_stdout();
@@ -361,6 +361,28 @@ void *lobby(void *arg)
     return NULL;
 }
 
+void menu(){
+    printf("Comandos:\n");
+    printf("\t -list\t\t\t  List all tic-tac-toe rooms\n");
+    printf("\t -create\t\t   Normal Room\n");
+    printf("\t -create rank\t\t  Ranked room\n");
+    printf("\t -join {room number}\t  Join in one tic-tac-toe room\n");
+    printf("\t -leave\t\t\t  Back of the one tic-tac-toe room\n");
+    printf("\t -start\t\t\t  Starts one tic-tac-toe game\n");
+    printf("\t -login\t\t\t  Logged in to save your account\n");
+    printf("\t -signup\t\t  Dont' have an account? Register\n");
+    printf("\t -exit\t\t\t  Close terminal\n\n");
+}
+void logged_menu(){
+    printf("Comandos:\n");
+    printf("\t -list\t\t\t  List all tic-tac-toe rooms\n");
+    printf("\t -create\t\t   Normal Room\n");
+    printf("\t -create rank\t\t  Ranked room\n");
+    printf("\t -join {room number}\t  Join in one tic-tac-toe room\n");
+    printf("\t -leave\t\t\t  Back of the one tic-tac-toe room\n");
+    printf("\t -start\t\t\t  Starts one tic-tac-toe game\n");
+    printf("\t -logout\t\t  Starts one tic-tac-toe game\n\n");
+}
 void recv_msg_handler()
 {
     char message[BUFFER_SZ] = {};
@@ -375,15 +397,9 @@ void recv_msg_handler()
         {
 
             if (strcmp(message, "ok") == 0)
-            {
-                printf("Comandos:\n");
-                printf("\t -list\t\t\t  List all tic-tac-toe rooms\n");
-                printf("\t -create\t\t  Create one tic-tac-toe room\n");
-                printf("\t -create rank\t\t  Create one tic-tac-toe room\n");
-                printf("\t -join {room number}\t  Join in one tic-tac-toe room\n");
-                printf("\t -leave\t\t\t  Back of the one tic-tac-toe room\n");
-                printf("\t -start\t\t\t  Starts one tic-tac-toe game\n\n");
-
+            { //TODO: THEM BIEN IS LOGIN DE THAY DOI TERMINAL
+                
+                menu();
                 str_overwrite_stdout();
             }
             else if (strcmp(message, "start game\n") == 0)
@@ -423,11 +439,16 @@ void recv_msg_handler()
                 printf("Login Successful\n");
                 strcpy(username, name);
                 strcpy(name, res.message);
-                printf("Hello:%s\n", username);
+                flashScreen();
+                printf("Hello:%s\n", name);
+                logged_menu();
                 str_overwrite_stdout();
             }
-            else if (strcmp("Logout Successful",res.message)==0){
+            else if (strcmp("Logout Successful\n",res.message)==0){
                 strcpy(name,username);
+                flashScreen();
+                menu();
+                str_overwrite_stdout();
             }
                 else
                 {
@@ -677,15 +698,15 @@ void game()
     }
 }
 
-void menu()
+void startScreen()
 {
-    int opcao = 0;
+    int option= 0;
 
     flashScreen();
 
     signal(SIGINT, catch_ctrl_c_and_exit);
 
-    while (opcao < 1 || opcao > 3)
+    while (opcao < 1 || option> 3)
     {
         printf("Welcome to Tic Tac Toe");
         printf("\n1 - Play locally");
@@ -700,28 +721,28 @@ void menu()
         {
         case 1:
             flashScreen();
-            opcao = 0;
+            option= 0;
             game();
             break;
         case 2:
             flashScreen();
-            opcao = 0;
+            option= 0;
             exit(conectGame());
             break;
         case 3:
             flashScreen();
-            opcao = 0;
+            option= 0;
             printf("About the game!\n");
             break;
         case 4:
             flashScreen();
-            opcao = 0;
+            option= 0;
             printf("You leave!\n");
             exit(0);
             break;
         default:
             flashScreen();
-            opcao = 0;
+            option= 0;
             printf("Invalid option!\n");
             continue;
             break;
@@ -731,7 +752,7 @@ void menu()
 
 int main(int argc, char **argv)
 {
-    menu();
+    startScreen();
 
     return 0;
 }
