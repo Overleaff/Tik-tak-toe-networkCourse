@@ -7,10 +7,6 @@
 int main()
 {
 
-   elementtype t;
-   strcpy(t.name,"tu");
-   strcpy(t.pass,"s");
-   t.elo=3;
-   t.status=2;
-   saveData("database.txt",t);
+    getLine2("database.txt","tu");
+    saveData1();
 }

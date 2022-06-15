@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include<string.h>
+#include <string.h>
 typedef struct phoneaddress_t
 {
     char name[50];
     char pass[50];
     int elo;
-    //char ip[50];
+    // char ip[50];
     int status; // 0:offline
 } elementtype;
 
@@ -49,8 +49,8 @@ void displayNode2(userNode *p)
         return;
     }
     elementtype tmp = p->element;
-   // printf("%-20s\t%-17s\t%-25d%-25s%-25d%-p\n", tmp.name, tmp.pass, tmp.elo, tmp.ip,tmp.status, p->next);
-    printf("%-20s\t%-17s\t%-25d%-25d%-p\n", tmp.name, tmp.pass, tmp.elo,tmp.status, p->next);
+    // printf("%-20s\t%-17s\t%-25d%-25s%-25d%-p\n", tmp.name, tmp.pass, tmp.elo, tmp.ip,tmp.status, p->next);
+    printf("%-20s\t%-17s\t%-25d%-25d%-p\n", tmp.name, tmp.pass, tmp.elo, tmp.status, p->next);
 }
 
 void insertAtHead2(elementtype ele)
@@ -221,7 +221,7 @@ void importTextFile(char *filename)
     elementtype tmp;
     int i = 0;
     freeList2(root2);
-    while (fscanf(fp, "%s %s %d %d", tmp.name, tmp.pass, &tmp.elo,&tmp.status) != EOF)
+    while (fscanf(fp, "%s %s %d %d", tmp.name, tmp.pass, &tmp.elo, &tmp.status) != EOF)
     {
         insertAtHead2(tmp);
         i++;
@@ -230,37 +230,113 @@ void importTextFile(char *filename)
     fclose(fp);
 }
 
-//Found the name at line
-int getLine(char *filename,char *name)
+// Found the name at line
+int getLine2(char *filename, char *name)
 {
     FILE *fp;
     if ((fp = fopen(filename, "r")) == NULL)
     {
         printf("Cannot open.\n");
-        return 0;
     }
     elementtype tmp;
     int i = 0;
-    int line =0;
-    int found=0;
-    while (fscanf(fp, "%s %s %d", tmp.name, tmp.pass, &tmp.elo) != EOF)
-    {  
-        line=line+1;
-       if(strcmp(name,tmp.name)==0){
-           found =1;
-           break;
-       }
+    int line = 0;
+    int found = 0;
+    while (fscanf(fp, "%s %s %d %d", tmp.name, tmp.pass, &tmp.elo, &tmp.status) != EOF)
+    {
+        line = line + 1;
+        if (strcmp(name, tmp.name) == 0)
+        {
+            found = 1;
+            break;
+        }
     }
     fclose(fp);
-    if(found==1){
-    printf("Found %s at line %d \n", name,line);
-    return line;}
-    printf("Found at line 0");  return 0;
-    
-    
+    if (found == 1)
+    {
+        printf("Found %s at line %d \n", name, line);
+        return line;
+    }
+    else
+        printf("Found at line 0\n");
+        return 0;
+
+   
 }
 
-// skip line to update data 
+// save name user withdata
+void saveData1(elementtype ele){
+    // update file path
+    int line = getLine2("database.txt",ele.name);
+    FILE *fPtr;
+    FILE *fTemp;
+    char path[100];
+
+    char buffer[1000];
+    char newline[1000];
+    int count;
+
+    /* Remove extra new line character from stdin */
+    fflush(stdin);
+
+    printf("Replace '%d' line with: ", line);
+
+    char tmp1[50];
+
+    strcat(newline, ele.name);
+    strcat(newline, " ");
+    strcat(newline, ele.pass);
+    strcat(newline, " ");
+    sprintf(tmp1, "%d", ele.elo);
+    strcat(newline, tmp1);
+    strcat(newline, " ");
+    sprintf(tmp1, "%d", ele.status);
+    strcat(newline, tmp1);
+    strcat(newline, "\n");
+
+    /*  Open all required files */
+    fPtr = fopen("database.txt", "r");
+    fTemp = fopen("replace.tmp", "w");
+
+    /* fopen() return NULL if unable to open file in given mode. */
+    if (fPtr == NULL || fTemp == NULL)
+    {
+        /* Unable to open file hence exit */
+        printf("\nUnable to open file.\n");
+        printf("Please check whether file exists and you have read/write privilege.\n");
+        exit(EXIT_SUCCESS);
+    }
+
+    /*
+     * Read line from source file and write to destination
+     * file after replacing given line.
+     */
+    count = 0;
+    while ((fgets(buffer, 1000, fPtr)) != NULL)
+    {
+        count++;
+
+        /* If current line is line to replace */
+        if (count == line)
+            fputs(newline, fTemp);
+        else
+            fputs(buffer, fTemp);
+    }
+
+    /* Close all files to release resource */
+    fclose(fPtr);
+    fclose(fTemp);
+
+    /* Delete original source file */
+    remove("database.txt");
+
+    /* Rename temporary file as original file */
+    rename("replace.tmp", "database.txt");
+
+    printf("\nSuccessfully replaced '%d' line with '%s'.", line, newline);
+}
+
+// skip line to update data
 // return ip of player to challegne
 /*
 char * getNumberActive(char *yourName){
@@ -273,14 +349,14 @@ char * getNumberActive(char *yourName){
     }
     return NULL;
 } */
-void append(char *str){
+void append(char *str)
+{
     // append to last line
     FILE *fptr3;
     int i, n;
- 
+
     char fname[20];
 
-      
     printf("\n\n Append multiple lines at the end of a text file :\n");
     printf("------------------------------------------------------\n");
     printf(" Input the file name to be opened : ");
@@ -290,19 +366,18 @@ void append(char *str){
     // scanf("%d", &n);
     printf(" The lines are : \n");
 
-     
     fprintf(fptr3, "\n%s", str);
 
     fclose(fptr3);
 }
 
-void saveData(char *filename,elementtype user)
+void saveData(char *filename, elementtype user)
 {
     FILE *fp;
     if ((fp = fopen(filename, "r")) == NULL)
     {
         printf("Cannot open.\n");
-        return 0;
+      
     }
     elementtype tmp;
     int i = 0;
@@ -313,12 +388,10 @@ void saveData(char *filename,elementtype user)
         line = line + 1;
         if (strcmp(user.name, tmp.name) == 0)
         {
-           // fprintf(fp, "%s %s %d", tmp.name, tmp.pass, tmp.elo);
-           fprintf(fp, "tuan %s %d", tmp.pass, tmp.elo);
-           break;
+            // fprintf(fp, "%s %s %d", tmp.name, tmp.pass, tmp.elo);
+            fprintf(fp, "tuan %s %d", tmp.pass, tmp.elo);
+            break;
         }
     }
     fclose(fp);
-    
-
 }

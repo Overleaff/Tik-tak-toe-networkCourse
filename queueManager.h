@@ -25,6 +25,7 @@ void queue_remove_client(int uid)
             if (clients[i]->uid == uid)
             {
                 clients[i] = NULL;
+                break;
             }
         }
     }
@@ -58,7 +59,9 @@ void queue_remove_room(int uid)
         {
             if (rooms[i]->uid == uid)
             {
+                //memset(&rooms[i], 0, sizeof(rooms[i]));
                 rooms[i]=0;
+                break;
             }
         }
     }
