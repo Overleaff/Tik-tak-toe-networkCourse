@@ -118,8 +118,8 @@ void *multiplayerGame(void *arg)
     char message[BUFFER_SZ] = {};
     response res;
 
-    int receive = recv(sockfd, &res, sizeof(res), 0);
-    strcpy(message, res.message);
+    int receive = recv(sockfd, message, BUFFER_SZ, 0);
+    //strcpy(message, message);
     if (receive > 0)
     {
         setbuf(stdin, 0);
@@ -154,8 +154,8 @@ void *multiplayerGame(void *arg)
             {
                 bzero(message, BUFFER_SZ);
 
-                int receive = recv(sockfd, &res, sizeof(res), 0);
-                strcpy(message, res.message);
+                int receive = recv(sockfd, message, BUFFER_SZ, 0);
+                //strcpy(message, message);
                 if (receive > 0)
                 {
                     valid_play = 1;
@@ -194,8 +194,8 @@ void *multiplayerGame(void *arg)
 
                         while (played == 0)
                         {
-                            int receive = recv(sockfd, &res, sizeof(res), 0);
-                            strcpy(message, res.message);
+                            int receive = recv(sockfd, message, BUFFER_SZ, 0);
+                            //strcpy(message, message);
 
                             if (receive > 0)
                             {
@@ -254,8 +254,8 @@ void *multiplayerGame(void *arg)
 
         bzero(message, BUFFER_SZ);
 
-        int receive = recv(sockfd, &res, sizeof(res), 0);
-        strcpy(message, res.message);
+        int receive = recv(sockfd, message, BUFFER_SZ, 0);
+        // strcpy(message, message);
         if (receive > 0)
         {
             setbuf(stdin, 0);
@@ -405,13 +405,15 @@ void selectMode(){
 void recv_msg_handler()
 {
     char message[BUFFER_SZ] = {};
-    response res;
+    //response res;
     flashScreen();
 
     while (1)
     {
-        int receive = recv(sockfd, &res, sizeof(res), 0);
-        strcpy(message, res.message);
+     
+        int receive = recv(sockfd, message, BUFFER_SZ, 0);
+        //int receive = recv(sockfd, &res, sizeof(res), 0);
+        //strcpy(message, message);
         if (receive > 0)
         {
             if (strcmp(message, "ok1") == 0)
@@ -459,25 +461,26 @@ void recv_msg_handler()
 
                 // pthread_kill(lobby_thread, SIGUSR1);
             }
-            else if (res.status == 204)
-            {
+            else if (strstr(message,"USER"))  //login thanh cong
+            {   
+                char *p = strtok(message,"|");
                 printf("Login Successful\n");
                 strcpy(username, name);
-                strcpy(name, res.message);
+                strcpy(name, strtok(NULL,"|"));
                 flashScreen();
                 printf("Hello:%s\n", name);
                 logged_menu();
                 str_overwrite_stdout();
             }
-            else if (strcmp("Logout Successful\n",res.message)==0){
+            else if (strcmp("Logout Successful\n",message)==0){
                 strcpy(name,username);
                 flashScreen();
                 menu();
                 str_overwrite_stdout();
             }
-                else
+            else
                 {
-                    printf("[%d] - %s", res.status, message);
+                    printf("%s", message);
                     str_overwrite_stdout();
                 }
         }
