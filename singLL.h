@@ -282,8 +282,7 @@ void saveData1(elementtype ele){
     printf("Replace '%d' line with: ", line);
 
     char tmp1[50];
-
-    strcat(newline, ele.name);
+    strcpy(newline, ele.name);
     strcat(newline, " ");
     strcat(newline, ele.pass);
     strcat(newline, " ");

@@ -666,9 +666,10 @@ void *handle_client(void *arg)
                                         if (rooms[j]->game->playerTurn == rooms[j]->player1->uid)
                                         {
                                             bzero(buffer, BUFFER_SZ);
+                                            // TODO : NG 1 WIN CAP NHAT ELO
                                             sprintf(buffer, "win1\n");
                                             send_message(buffer, rooms[j]->player1->uid);
-
+                                  
                                             sleep(0.5);
 
                                             send_message(buffer, rooms[j]->player2->uid);
@@ -676,6 +677,7 @@ void *handle_client(void *arg)
                                         else if (rooms[j]->game->playerTurn == rooms[j]->player2->uid)
                                         {
                                             bzero(buffer, BUFFER_SZ);
+                                            // TODO : NG 2 WIN CAP NHAT ELO
                                             sprintf(buffer, "win2\n");
                                             send_message(buffer, rooms[j]->player1->uid);
 

@@ -7,6 +7,11 @@
 int main()
 {
 
-    getLine2("database.txt","tu");
-    saveData1();
+    //getLine2("database.txt","tu");
+    elementtype e;
+    strcpy(e.name,"nga");
+    strcpy(e.pass,"s");
+    e.status=1;
+    e.elo=2;
+    saveData1(e);
 }
