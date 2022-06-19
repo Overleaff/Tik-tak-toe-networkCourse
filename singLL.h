@@ -210,6 +210,21 @@ void traversingList2(userNode *root2)
         displayNode2(p);
 }
 
+elementtype  updateUserInfo(char *name,int elo)
+{
+    userNode *p;
+    
+    for (p = root2; p != NULL; p = p->next)
+        {
+            if(strcmp(p->element.name,name)==0){
+                p->element.elo = elo;
+                printf("Update success %s\n",p->element.name);
+                return p->element;
+            }
+        }
+    
+}
+
 void importTextFile(char *filename)
 {
     FILE *fp;

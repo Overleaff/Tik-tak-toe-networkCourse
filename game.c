@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <ctype.h>
 #include <errno.h>
 #include <signal.h>
 #include <unistd.h>
@@ -32,8 +32,8 @@ pthread_t lobby_thread;
 pthread_t recv_msg_thread;
 pthread_t multiplayer_game;
 
-char *ip = "127.0.0.1";
-int port = 2050;
+char ip[1000];
+int port;
 void startScreen();
 void catch_ctrl_c_and_exit()
 {
@@ -515,7 +515,7 @@ void send_msg_handler()
     catch_ctrl_c_and_exit(2);
 }
 */
-int conectGame()
+int conectGame(char *ip,int port)
 {
     setbuf(stdin, 0);
     //printf("1.Play as guest");
@@ -536,12 +536,13 @@ int conectGame()
     } while (strlen(name) > NAME_LEN - 1 || strlen(name) < 2);*/
     strcpy(name,"GO");
     struct sockaddr_in server_addr;
-
-    // socket settings
+   
+        // socket settings
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = inet_addr(ip);
     server_addr.sin_port = htons(port);
+    server_addr.sin_addr.s_addr = inet_addr(ip);
+    
 
     // connect to the server
     int err = connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
@@ -759,7 +760,7 @@ void startScreen()
         case 2:
             flashScreen();
             option= 0;
-            exit(conectGame());
+            exit(conectGame(ip,port));
             break;
         case 3:
             flashScreen();
@@ -784,6 +785,16 @@ void startScreen()
 
 int main(int argc, char **argv)
 {
+    if (argc != 3)
+    {
+        printf("error, too many or too few arguments\n");
+        printf("Correct format is ./client <ip> <port>");
+        return 1;
+    }
+   // 
+    port = atoi(argv[2]);
+    strcpy(ip, argv[1]);
+    //printf("%s %d", argv[1], port);
     startScreen();
 
     return 0;

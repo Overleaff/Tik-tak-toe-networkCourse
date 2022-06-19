@@ -6,16 +6,11 @@ typedef struct
     struct sockaddr_in address;
     int sockfd;
     int uid;
-    char name[100];
-    int elo;
+    elementtype userInfo;
     char username[100];   // name khi chua login tmp
-    char pass[100];
+   
 } client_t;
-typedef struct protocol2
-{
-    int status;
-    char message[1000];
-} response;
+
 typedef struct
 {
     char board[3][3];
@@ -81,8 +76,8 @@ void displayNode(node *p)
     printf("Room\n");
     printf("Roomid:%d\nRoom type:%-20s\nState:%-100s\n", tmp.uid, tmp.roomType, tmp.state);
     printf("Player\n");
-    printf("User 1:%s\nElo:%d",tmp.player1->name,tmp.player1->elo);
-    printf("User 2:%s\nElo:%d", tmp.player2->name, tmp.player2->elo);
+    printf("User 1:%s\nElo:%d",tmp.player1->userInfo.name,tmp.player1->userInfo.elo);
+    printf("User 2:%s\nElo:%d", tmp.player2->userInfo.name, tmp.player2->userInfo.elo);
 }
 
 void insertAtHead(room_t ele)
