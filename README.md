@@ -1,3 +1,8 @@
+Run:
+./server port
+./game ip port
+
+
 2 che do
 guest
 login
