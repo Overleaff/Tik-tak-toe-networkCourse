@@ -457,8 +457,7 @@ void *handle_client(void *arg)
 
                                 if (rooms[i]->player2 != 0)
                                 {
-                                    sprintf(list, "%i)\n    room state: %s  \n    player1: %s - elo: %d\n    player2: %s - elo: %d\n", rooms[i]->uid, rooms[i]->state, rooms[i]->player1->userInfo.name, rooms[i]->player1->userInfo.elo
-                                    , rooms[i]->player2->userInfo.name, rooms[i]->player2->userInfo.elo);
+                                    sprintf(list, "%i)\n    room state: %s  \n    player1: %s - elo: %d-sockfd:%d\n    player2: %s - elo: %d-sockfd:%d\\n", rooms[i]->uid, rooms[i]->state, rooms[i]->player1->userInfo.name, rooms[i]->player1->userInfo.elo, rooms[i]->player1->sockfd, rooms[i]->player2->userInfo.name, rooms[i]->player2->userInfo.elo, rooms[i]->player1->sockfd);
                                 }
                                 else
                                 {
@@ -875,6 +874,7 @@ int main(int argc, char **argv)
         // add client to queue
         queue_add_client(cli);
         pthread_create(&tid, NULL, &handle_client, (void *)cli);
+        
 
         // reduce CPU usage
         sleep(1);
