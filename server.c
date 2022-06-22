@@ -22,6 +22,7 @@
 static _Atomic unsigned int cli_count = 0;
 static int uid = 10;
 static int roomUid = 1;
+int firstElo, secondElo;
 
 int posicoes[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
 
@@ -35,6 +36,34 @@ pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t rooms_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #include "queueManager.h"
+
+int i=0;
+
+float Probability(int rating1, int rating2)
+{
+    return 1.0 * 1.0 / (1 + 1.0 *
+           pow(10, 1.0 * (rating1 - rating2) / 400));
+}
+ 
+void EloRating(int Ra, int Rb, int K, int d)
+{ 
+    float Pb = Probability(Ra, Rb);
+
+    float Pa = Probability(Rb, Ra);
+ 
+    int a, b;
+    if (d == 1) {
+        firstElo = Ra + K * (1 - Pa);
+        secondElo = Rb + K * (0 - Pb);
+    }
+ 
+    else {
+        firstElo = Ra + K * (0 - Pa);
+        secondElo = Rb + K * (1 - Pb);
+    }
+    /*fflush(stdout);
+    printf( "Ra = %d Rb = %d", Ra,Rb );*/
+}
 
 void send_message(char *message, int uid)
 {
@@ -684,9 +713,11 @@ void *handle_client(void *arg)
                                     }
 
                                     sleep(1);
+                                                                        char append[20]=""; //New variable
+                                                                        char append1[20]=""; //New variable
 
                                     if (rooms[j]->game->gameStatus == 0)
-                                    {
+                                    {   
                                         strcpy(rooms[j]->state, rooms[j]->roomType);
                                         strcat(rooms[j]->state, "waiting start");
 
@@ -694,15 +725,24 @@ void *handle_client(void *arg)
                                         {
                                             bzero(buffer, BUFFER_SZ);
                                             // TODO : NG 1 WIN CAP NHAT ELO
-                                            sprintf(buffer, "win1\n");
-                                            send_message(buffer, rooms[j]->player1->uid);
+
+                                            EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 1);
+                                            sprintf(append,"%d",firstElo); // put the int into a string
+                                            strcat(append, "|");
+    
+                                        sprintf(append1,"%d",secondElo);
+                                            strcat(append, append1);
+                                        sprintf(buffer, strcat(append,"|win1|"));
+
+                                        send_message(buffer, rooms[j]->player1->uid);
                                             //sau khi cap nhat elo
                                             // pass name and elo user
                                             if(strstr(rooms[j]->state,"[RANK] ")){
-                                            rooms[j]->player1->userInfo.elo++; // 2 dong nay chi de test
-                                            rooms[j]->player2->userInfo.elo++;
-                                            saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, rooms[j]->player1->userInfo.elo));
-                                            saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, rooms[j]->player2->userInfo.elo));}
+                                            /*rooms[j]->player1->userInfo.elo++; // 2 dong nay chi de test
+                                            rooms[j]->player2->userInfo.elo++;*/
+                                            saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
+                                            saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
+                                            }
                                             sleep(0.5);
 
                                             send_message(buffer, rooms[j]->player2->uid);
@@ -711,15 +751,25 @@ void *handle_client(void *arg)
                                         {
                                             bzero(buffer, BUFFER_SZ);
                                             // TODO : NG 2 WIN CAP NHAT ELO
+                                                 bzero(buffer, BUFFER_SZ);
+                                      EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 0);
+
+                                        sprintf(append,"%d",secondElo); // put the int into a string
+                                                        strcat(append, "|");
+                                             sprintf(append1,"%d",firstElo);
+                                                  strcat(append, append1);    
+                                        sprintf(buffer, strcat(append,"|win2|"));
+
                                             //save data to file
                                             if (strstr(rooms[j]->state, "[RANK] ") )
                                             {
                                                 rooms[j]->player1->userInfo.elo++; // 2 dong nay chi de test
                                                 rooms[j]->player2->userInfo.elo++;
-                                                saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, rooms[j]->player1->userInfo.elo));
-                                                saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, rooms[j]->player2->userInfo.elo));
+                                                saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
+                                                saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
                                             }
-                                            sprintf(buffer, "win2\n");
+
+
                                             send_message(buffer, rooms[j]->player1->uid);
 
                                             sleep(0.5);
@@ -826,12 +876,12 @@ int main(int argc, char **argv)
 
     // Signals
     signal(SIGPIPE, SIG_IGN);
-
+/*
     if (setsockopt(listenfd, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR), (char *)&option, sizeof(option)) < 0)
     {
         printf("ERROR: setsockopt\n");
         return EXIT_FAILURE;
-    }
+    }*/
 
     if (bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {

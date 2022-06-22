@@ -48,6 +48,22 @@ void showPositions()
     printf("\n 1 | 2 | 3\n");
 }
 
+char winState[100]="";
+char updatedElo[100]="";
+char updatedElo1[100]="";
+void split(char a[100]){
+    char * token = strtok(a, "|");
+
+      //printf( " %s\n", token );00
+      strcat(updatedElo, token);
+      token = strtok(NULL, "|");
+        strcat(updatedElo1, token);
+      token = strtok(NULL, "|");
+        strcat(winState, token);
+        token = strtok(NULL, "|");
+
+}
+
 void showBoard(char board[3][3], char *errorMessage)
 {
     int linha;
@@ -115,6 +131,7 @@ void *multiplayerGame(void *arg)
 
     char errorMessage[255] = {'\x00'};
     char *nameCurrentPlayer;
+        char *nameCurrentPlayer1;
     char message[BUFFER_SZ] = {};
     response res;
 
@@ -139,9 +156,10 @@ void *multiplayerGame(void *arg)
             if (playerTurn == 1)
             {
                 nameCurrentPlayer = (char *)&namePlayer1;
+             nameCurrentPlayer1 = (char *)&namePlayer2;
             }
             else
-            {
+            {   nameCurrentPlayer1 = (char *)&namePlayer1;
                 nameCurrentPlayer = (char *)&namePlayer2;
             }
 
@@ -261,15 +279,19 @@ void *multiplayerGame(void *arg)
             setbuf(stdin, 0);
             setbuf(stdout, 0);
 
-            showBoard(board, (char *)&errorMessage);
+          showBoard(board, (char *)&errorMessage);
+            split(message);
+            //printf("\nPlayer '%s' win!\nUpdated elo: '%s'", winState,updatedElo);
 
-            if (strcmp(message, "win1\n") == 0)
-            {
-                printf("\nPlayer '%s' win!", nameCurrentPlayer);
+            if (strcmp(winState, "win1") == 0)
+            {   
+                printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer, updatedElo);
+                printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1, updatedElo1);
             }
-            else if (strcmp(message, "win2\n") == 0)
+            else if (strcmp(winState, "win2") == 0)
             {
-                printf("\nPlayer '%s' win!", nameCurrentPlayer);
+                printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer,updatedElo);
+                printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1,updatedElo1);
             }
 
             printf("\nEnd of the game!\n");
