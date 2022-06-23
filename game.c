@@ -16,7 +16,7 @@
 #include "customSTD.h"
 
 #define MAX_CLIENTS 100
-#define BUFFER_SZ 2048
+#define BUFFER_SZ 4096
 #define NAME_LEN 32
 typedef struct protocol2
 {
@@ -295,7 +295,7 @@ void *multiplayerGame(void *arg)
 
     return NULL;
 }
-char username[100];  // hold name temp when not login
+char username[100]; // hold name temp when not login
 void *lobby(void *arg)
 {
     char buffer[BUFFER_SZ] = {};
@@ -314,8 +314,8 @@ void *lobby(void *arg)
             memset(buffer, '\0', (strlen(buffer) + 1));
             strcpy(buffer, "GUEST|");
             strcat(buffer, uname);
-           
-            strcpy(name,uname);
+
+            strcpy(name, uname);
         }
         if (strcmp(buffer, "signup") == 0)
         {
@@ -374,10 +374,11 @@ void *lobby(void *arg)
     return NULL;
 }
 
-void menu(){
-    printf("Comandos:\n");
+void menu()
+{
+    printf("Commands:\n");
     printf("\t -list\t\t\t  List all tic-tac-toe rooms\n");
-    printf("\t -create\t\t   Normal Room\n");
+    printf("\t -create\t\t  Normal Room\n");
     printf("\t -create rank\t\t  Ranked room\n");
     printf("\t -join {room number}\t  Join in one tic-tac-toe room\n");
     printf("\t -leave\t\t\t  Back of the one tic-tac-toe room\n");
@@ -386,18 +387,20 @@ void menu(){
     printf("\t -signup\t\t  Dont' have an account? Register\n");
     printf("\t -exit\t\t\t  Close terminal\n\n");
 }
-void logged_menu(){
-    printf("Comandos:\n");
+void logged_menu()
+{
+    printf("Commands:\n");
     printf("\t -list\t\t\t  List all tic-tac-toe rooms\n");
-    printf("\t -create\t\t   Normal Room\n");
+    printf("\t -create\t\t  Normal Room\n");
     printf("\t -create rank\t\t  Ranked room\n");
     printf("\t -join {room number}\t  Join in one tic-tac-toe room\n");
     printf("\t -leave\t\t\t  Back of the one tic-tac-toe room\n");
     printf("\t -start\t\t\t  Starts one tic-tac-toe game\n");
     printf("\t -logout\t\t  Starts one tic-tac-toe game\n\n");
 }
-void selectMode(){
-    
+void selectMode()
+{
+
     printf("guest  -login as guest\n");
     printf("login  -signin\n");
     printf("signup -register new account\n\n");
@@ -410,7 +413,7 @@ void recv_msg_handler()
 
     while (1)
     {
-     
+
         int receive = recv(sockfd, message, BUFFER_SZ, 0);
         //int receive = recv(sockfd, &res, sizeof(res), 0);
         //strcpy(message, message);
@@ -420,12 +423,10 @@ void recv_msg_handler()
             { // TODO: THEM BIEN IS LOGIN DE THAY DOI TERMINAL
                 selectMode();
                 str_overwrite_stdout();
-                
-                
             }
             else if (strcmp(message, "ok") == 0)
             { //TODO: THEM BIEN IS LOGIN DE THAY DOI TERMINAL
-                
+
                 menu();
                 str_overwrite_stdout();
             }
@@ -461,28 +462,29 @@ void recv_msg_handler()
 
                 // pthread_kill(lobby_thread, SIGUSR1);
             }
-            else if (strstr(message,"USER"))  //login thanh cong
-            {   
-                char *p = strtok(message,"|");
+            else if (strstr(message, "USER")) //login thanh cong
+            {
+                char *p = strtok(message, "|");
                 printf("Login Successful\n");
                 strcpy(username, name);
-                strcpy(name, strtok(NULL,"|"));
+                strcpy(name, strtok(NULL, "|"));
                 flashScreen();
                 printf("Hello:%s\n", name);
                 logged_menu();
                 str_overwrite_stdout();
             }
-            else if (strcmp("Logout Successful\n",message)==0){
-                strcpy(name,username);
+            else if (strcmp("Logout Successful\n", message) == 0)
+            {
+                strcpy(name, username);
                 flashScreen();
                 menu();
                 str_overwrite_stdout();
             }
             else
-                {
-                    printf("%s", message);
-                    str_overwrite_stdout();
-                }
+            {
+                printf("%s", message);
+                str_overwrite_stdout();
+            }
         }
         else if (receive == 0)
         {
@@ -515,7 +517,7 @@ void send_msg_handler()
     catch_ctrl_c_and_exit(2);
 }
 */
-int conectGame(char *ip,int port)
+int conectGame(char *ip, int port)
 {
     setbuf(stdin, 0);
     //printf("1.Play as guest");
@@ -534,15 +536,14 @@ int conectGame(char *ip,int port)
             printf("Enter name corretly (length>1)\n");
         }
     } while (strlen(name) > NAME_LEN - 1 || strlen(name) < 2);*/
-    strcpy(name,"GO");
+    strcpy(name, "GO");
     struct sockaddr_in server_addr;
-   
-        // socket settings
+
+    // socket settings
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port);
     server_addr.sin_addr.s_addr = inet_addr(ip);
-    
 
     // connect to the server
     int err = connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
@@ -710,7 +711,6 @@ void game()
         showBoard(board, (char *)&errorMessage);
 
         printf("\nOther player '%s' win!", nameCurrentPlayer);
-
         printf("\nEnd of the game!\n");
         printf("\nDo you want to start a game?");
         printf("\n1 - Yes");
@@ -733,13 +733,13 @@ void game()
 
 void startScreen()
 {
-    int option= 0;
+    int option = 0;
 
     flashScreen();
 
     signal(SIGINT, catch_ctrl_c_and_exit);
 
-    while (option < 1 || option> 3)
+    while (option < 1 || option > 3)
     {
         printf("Welcome to Tic Tac Toe");
         printf("\n1 - Play locally");
@@ -754,28 +754,28 @@ void startScreen()
         {
         case 1:
             flashScreen();
-            option= 0;
+            option = 0;
             game();
             break;
         case 2:
             flashScreen();
-            option= 0;
-            exit(conectGame(ip,port));
+            option = 0;
+            exit(conectGame(ip, port));
             break;
         case 3:
             flashScreen();
-            option= 0;
+            option = 0;
             printf("About the game!\n");
             break;
         case 4:
             flashScreen();
-            option= 0;
+            option = 0;
             printf("You leave!\n");
             exit(0);
             break;
         default:
             flashScreen();
-            option= 0;
+            option = 0;
             printf("Invalid option!\n");
             continue;
             break;
@@ -791,7 +791,7 @@ int main(int argc, char **argv)
         printf("Correct format is ./client <ip> <port>");
         return 1;
     }
-   // 
+    //
     port = atoi(argv[2]);
     strcpy(ip, argv[1]);
     //printf("%s %d", argv[1], port);
