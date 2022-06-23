@@ -65,31 +65,34 @@ void EloRating(int Ra, int Rb, int K, int d)
     printf( "Ra = %d Rb = %d", Ra,Rb );*/
 }
 
-void send_message(char *message, int uid)
-{
 
-    
 
-    for (int i = 0; i < MAX_CLIENTS; i++)
+    void send_message(char *message, int uid)
     {
-        if (clients[i])
+
+        pthread_mutex_lock(&clients_mutex);
+
+        for (int i = 0; i < MAX_CLIENTS; i++)
         {
-            if (clients[i]->uid == uid)
+            if (clients[i])
             {
-                // ass res.mess res.status
-                //res.status = status;
-                //strcpy(res.message, message);
-                if (write(clients[i]->sockfd, message, strlen(message)) < 0)
+                if (clients[i]->uid == uid)
                 {
-                    printf("ERROR: write to descriptor failed\n");
-                    break;
+                    // ass res.mess res.status
+                    // res.status = status;
+                    // strcpy(res.message, message);
+                    if (write(clients[i]->sockfd, message, strlen(message)) < 0)
+                    {
+                        printf("ERROR: write to descriptor failed\n");
+                        break;
+                    }
                 }
             }
         }
+
+        pthread_mutex_unlock(&clients_mutex);
     }
 
-   
-}
 
 void *handle_client(void *arg)
 {

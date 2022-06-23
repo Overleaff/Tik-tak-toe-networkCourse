@@ -211,7 +211,7 @@ void *multiplayerGame(void *arg)
                         } while (board[linePlay][colPlay] == 'X' || board[linePlay][colPlay] == 'O');
                         if (valid_play == 1)
                         {
-                            sprintf(message, "play %i\n", positionPlay);
+                            sprintf(message, "PLAY %i\n", positionPlay);
                             send(sockfd, message, strlen(message), 0);
                             bzero(message, BUFFER_SZ);
                         }
@@ -223,7 +223,8 @@ void *multiplayerGame(void *arg)
                         played = 0;
 
                         while (played == 0)
-                        {
+                        { //TODO: NHAN MOVE
+
                             int receive = recv(sockfd, message, BUFFER_SZ, 0);
                             //strcpy(message, message);
 
