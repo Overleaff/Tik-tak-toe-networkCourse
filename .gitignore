@@ -1,4 +1,9 @@
 .vscode/
 *client
 *server
+<<<<<<< HEAD
 *game
+=======
+client.dSYM/Contents/Info.plist
+server.dSYM/Contents/Info.plist
+>>>>>>> 2fea403e7393507bcbdcb36f3e042e7cd4d5f30e
