@@ -877,6 +877,7 @@ int main(int argc, char **argv)
         // add client to queue
         queue_add_client(cli);
         pthread_create(&tid, NULL, &handle_client, (void *)cli);
+        
 
         // reduce CPU usage
         sleep(1);
