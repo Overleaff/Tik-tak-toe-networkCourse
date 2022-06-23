@@ -218,6 +218,7 @@ elementtype  updateUserInfo(char *name,int elo)
         {
             if(strcmp(p->element.name,name)==0){
                 p->element.elo = elo;
+                traversingList2(root2);
                 printf("Update success %s\n",p->element.name);
                 return p->element;
             }

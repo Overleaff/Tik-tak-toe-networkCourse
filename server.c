@@ -13,7 +13,7 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include "customSTD.h"
-
+#include <math.h>
 #define MAX_CLIENTS 10
 #define MAX_ROOMS 5
 #define BUFFER_SZ 2048
@@ -68,7 +68,7 @@ void EloRating(int Ra, int Rb, int K, int d)
 void send_message(char *message, int uid)
 {
 
-    pthread_mutex_lock(&clients_mutex);
+    
 
     for (int i = 0; i < MAX_CLIENTS; i++)
     {
@@ -88,7 +88,7 @@ void send_message(char *message, int uid)
         }
     }
 
-    pthread_mutex_unlock(&clients_mutex);
+   
 }
 
 void *handle_client(void *arg)
@@ -299,9 +299,9 @@ void *handle_client(void *arg)
                         }
                     }
 
-                    if (strcmp(buffer, "create") == 0 || strcmp(buffer, "create rank") == 0)
+                    if (strcmp(buffer, "CREATE") == 0 || strcmp(buffer, "CREATE RANK") == 0)
                     {
-                        if (strcmp(buffer, "create rank") == 0 && isLogin == 0)
+                        if (strcmp(buffer, "CREATE RANK") == 0 && isLogin == 0)
                         {
                             bzero(buffer, BUFFER_SZ);
                             sprintf(buffer, "You need to login\n");
@@ -350,7 +350,7 @@ void *handle_client(void *arg)
                                 room->player2 = 0;
                                 room->uid = roomUid;
                                 printf("Roomid create:%d\n", room->uid);
-                                if (strcmp(buffer, "create") == 0)
+                                if (strcmp(buffer, "CREATE") == 0)
                                 {
                                     strcpy(room->roomType, "[NORMAL] ");
                                 }
@@ -370,7 +370,7 @@ void *handle_client(void *arg)
                     }
 
                     // random
-                    else if (strcmp(command, "join") == 0)
+                    else if (strcmp(command, "JOIN") == 0)
                     {
                         int researched = 0;
                         int already = 0;
@@ -474,7 +474,7 @@ void *handle_client(void *arg)
                             send_message(buffer, cli->uid);
                         }
                     }
-                    else if (strcmp(command, "list") == 0)
+                    else if (strcmp(command, "LIST") == 0)
                     {
                         pthread_mutex_lock(&rooms_mutex);
 
@@ -501,7 +501,7 @@ void *handle_client(void *arg)
 
                         pthread_mutex_unlock(&rooms_mutex);
                     }
-                    else if (strcmp(command, "leave") == 0)
+                    else if (strcmp(command, "LEAVE") == 0)
                     {
                         int remove_room = 0;
                         int room_number = 0;
@@ -540,7 +540,7 @@ void *handle_client(void *arg)
                                 else if (rooms[i]->player2->uid == cli->uid)
                                 {
                                     bzero(buffer, BUFFER_SZ);
-                                    sprintf(buffer, "[SERVER] %s left the room\n", rooms[i]->player1->userInfo.name);
+                                    sprintf(buffer, "[SERVER] %s left the room\n", rooms[i]->player2->userInfo.name);
                                     send_message(buffer, rooms[i]->player1->uid);
 
                                     rooms[i]->player2 = 0;
@@ -564,7 +564,7 @@ void *handle_client(void *arg)
                             roomUid++;
                         }
                     }
-                    else if (strcmp(command, "start") == 0)
+                    else if (strcmp(command, "START") == 0)
                     {
                         int startgame = 0;
                         room_t *room_game;
@@ -656,7 +656,7 @@ void *handle_client(void *arg)
                             send_message(buffer, room_game->player2->uid);
                         }
                     }
-                    else if (strcmp(command, "play") == 0)
+                    else if (strcmp(command, "PLAY") == 0)
                     {
                         pthread_mutex_lock(&rooms_mutex);
 
@@ -726,55 +726,64 @@ void *handle_client(void *arg)
                                             bzero(buffer, BUFFER_SZ);
                                             // TODO : NG 1 WIN CAP NHAT ELO
 
-                                            EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 1);
-                                            sprintf(append,"%d",firstElo); // put the int into a string
+                                            sprintf(buffer, strcat(append, strtok(rooms[j]->state, " ")));
                                             strcat(append, "|");
-    
-                                        sprintf(append1,"%d",secondElo);
-                                            strcat(append, append1);
-                                        sprintf(buffer, strcat(append,"|win1|"));
+                                            if (strstr(rooms[j]->state, "[RANK]"))
+                                            {
+                                                EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 0);
+                                                
+                                                sprintf(append, "%d", firstElo); // put the int into a string
+                                                strcat(append, "|");
+                                                sprintf(append1, "%d", secondElo);
+                                                strcat(append, append1);
+                                                strcat(append, "|");
+                                                
+                                                saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
+                                                saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
+                                                traversingList2(root2);
+                                            }
+                                           
+                                        sprintf(buffer, strcat(append,"win1|"));
+                                        printf("%s\n",buffer);
 
                                         send_message(buffer, rooms[j]->player1->uid);
                                             //sau khi cap nhat elo
                                             // pass name and elo user
-                                            if(strstr(rooms[j]->state,"[RANK] ")){
-                                            /*rooms[j]->player1->userInfo.elo++; // 2 dong nay chi de test
-                                            rooms[j]->player2->userInfo.elo++;*/
-                                            saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
-                                            saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
-                                            }
+                                           
                                             sleep(0.5);
 
                                             send_message(buffer, rooms[j]->player2->uid);
                                         }
                                         else if (rooms[j]->game->playerTurn == rooms[j]->player2->uid)
                                         {
-                                            bzero(buffer, BUFFER_SZ);
+                                            
                                             // TODO : NG 2 WIN CAP NHAT ELO
                                                  bzero(buffer, BUFFER_SZ);
-                                      EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 0);
+                                                 sprintf(buffer, strcat(append, strtok(rooms[j]->state, " ")));
+                                                 strcat(append, "|");
+                                                 // save data to file
+                                                 if (strstr(rooms[j]->state, "[RANK]"))
+                                                 {
+                                                     EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 1);
 
-                                        sprintf(append,"%d",secondElo); // put the int into a string
-                                                        strcat(append, "|");
-                                             sprintf(append1,"%d",firstElo);
-                                                  strcat(append, append1);    
-                                        sprintf(buffer, strcat(append,"|win2|"));
+                                                     sprintf(append, "%d", firstElo); // put the int into a string
+                                                     strcat(append, "|");
+                                                     sprintf(append1, "%d", secondElo);
+                                                     strcat(append, append1);
+                                                     strcat(append, "|");
+                                                     saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
+                                                     saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
+                                                     traversingList2(root2);
+                                                 }
 
-                                            //save data to file
-                                            if (strstr(rooms[j]->state, "[RANK] ") )
-                                            {
-                                                rooms[j]->player1->userInfo.elo++; // 2 dong nay chi de test
-                                                rooms[j]->player2->userInfo.elo++;
-                                                saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
-                                                saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
-                                            }
+                                           sprintf(buffer, strcat(append,"win2|"));
+                                           printf("%s\n", buffer);
 
+                                           send_message(buffer, rooms[j]->player1->uid);
 
-                                            send_message(buffer, rooms[j]->player1->uid);
+                                           sleep(0.5);
 
-                                            sleep(0.5);
-
-                                            send_message(buffer, rooms[j]->player2->uid);
+                                           send_message(buffer, rooms[j]->player2->uid);
                                         }
 
                                         bzero(buffer, BUFFER_SZ);

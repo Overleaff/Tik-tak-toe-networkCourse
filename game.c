@@ -51,16 +51,28 @@ void showPositions()
 char winState[100]="";
 char updatedElo[100]="";
 char updatedElo1[100]="";
+
+char gameType[100];
 void split(char a[100]){
+    printf("Str:%s\n",a);
     char * token = strtok(a, "|");
 
       //printf( " %s\n", token );00
-      strcat(updatedElo, token);
-      token = strtok(NULL, "|");
-        strcat(updatedElo1, token);
-      token = strtok(NULL, "|");
-        strcat(winState, token);
+    strcpy(gameType, token);
+
+
+    // if rank 
+    if (strcmp(gameType, "[RANK]") == 0){
         token = strtok(NULL, "|");
+    strcat(updatedElo, token);
+    token = strtok(NULL, "|");
+    strcat(updatedElo1, token);
+    }
+
+    token = strtok(NULL, "|");
+    strcat(winState, token);
+   
+    
 
 }
 
@@ -282,7 +294,20 @@ void *multiplayerGame(void *arg)
           showBoard(board, (char *)&errorMessage);
             split(message);
             //printf("\nPlayer '%s' win!\nUpdated elo: '%s'", winState,updatedElo);
-
+            if(strcmp(gameType,"[NORMAL]")==0){
+                if (strcmp(winState, "win1") == 0)
+                {
+                    printf("\n Player %s win!\n", nameCurrentPlayer);
+                    printf("\nPlayer '%s' lose!\n", nameCurrentPlayer1);
+                }
+                else if (strcmp(winState, "win2") == 0)
+                {
+                    printf("\n Player %s  win!", nameCurrentPlayer);
+                    printf("\nPlayer '%s' lose!", nameCurrentPlayer1);
+                }
+            }
+                   
+            else{
             if (strcmp(winState, "win1") == 0)
             {   
                 printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer, updatedElo);
@@ -293,7 +318,7 @@ void *multiplayerGame(void *arg)
                 printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer,updatedElo);
                 printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1,updatedElo1);
             }
-
+            }
             printf("\nEnd of the game!\n");
 
             sleep(6);
@@ -326,9 +351,20 @@ void *lobby(void *arg)
     {
         str_overwrite_stdout();
         fgets(buffer, BUFFER_SZ, stdin);
-
+        for (int i = 0; buffer[i] != '\0'; i++)
+        {
+            /*
+             * If current character is lowercase alphabet then
+             * convert it to uppercase.
+             */
+            if (buffer[i] >= 'a' && buffer[i] <= 'z')
+            {
+                buffer[i] = buffer[i] - 32;
+            }
+        }
         trim_lf(buffer, BUFFER_SZ);
-        if (strcmp(buffer, "guest") == 0)
+        
+        if (strcmp(buffer, "GUEST") == 0)
         {
             memset(uname, '\0', (strlen(uname) + 1));
             printf("Enter name : ");
@@ -339,7 +375,17 @@ void *lobby(void *arg)
            
             strcpy(name,uname);
         }
-        if (strcmp(buffer, "signup") == 0)
+        /*
+        if (strcmp(buffer, "JOIN") == 0)
+        {
+            int roomId;
+            char str[10];
+            printf("Enter room id:");scanf("%d",&roomId);
+            sprintf(str, "%d", roomId);
+            strcat(buffer, "|");
+            strcat(buffer, str);
+        }*/
+        if (strcmp(buffer, "SIGNUP") == 0)
         {
             memset(uname, '\0', (strlen(uname) + 1));
             memset(pass, '\0', (strlen(pass) + 1));
@@ -353,7 +399,7 @@ void *lobby(void *arg)
             strcat(buffer, "|");
             strcat(buffer, pass);
         }
-        if (strcmp(buffer, "login") == 0)
+        if (strcmp(buffer, "LOGIN") == 0)
         {
 
             printf("Enter userId : ");
@@ -368,18 +414,18 @@ void *lobby(void *arg)
 
             strcpy(name, uname);
         }
-        if (strcmp(buffer, "logout") == 0)
+        if (strcmp(buffer, "LOGOUT") == 0)
         {
-            printf("> Good bye %s", username);
-
+           
             memset(buffer, '\0', (strlen(buffer) + 1));
             strcpy(buffer, "LOGOUT|");
             strcat(buffer, name);
             strcat(buffer, "|");
-            strcpy(username, "");
-            str_overwrite_stdout();
+         
+            
+            //str_overwrite_stdout();
         }
-        if (strcmp(buffer, "exit") == 0)
+        if (strcmp(buffer, "EXIT") == 0)
         {
             break;
         }
@@ -480,7 +526,7 @@ void recv_msg_handler()
                 }
                 pthread_detach(pthread_self());
                 pthread_cancel(recv_msg_thread);
-
+                  
                 // pthread_kill(lobby_thread, SIGUSR1);
             }
             else if (strstr(message,"USER"))  //login thanh cong
@@ -495,7 +541,10 @@ void recv_msg_handler()
                 str_overwrite_stdout();
             }
             else if (strcmp("Logout Successful\n",message)==0){
+                printf(">Good bye %s\n", username);
+                strcpy(username, "");
                 strcpy(name,username);
+                sleep(1);
                 flashScreen();
                 menu();
                 str_overwrite_stdout();
@@ -514,29 +563,7 @@ void recv_msg_handler()
         bzero(message, BUFFER_SZ);
     }
 }
-/*
-void send_msg_handler()
-{
-    char buffer[BUFFER_SZ] = {};
 
-    while(1)
-    {
-        str_overwrite_stdout();
-        fgets(buffer, BUFFER_SZ, stdin);
-        trim_lf(buffer, BUFFER_SZ);
-
-        if (strcmp(buffer, "exit") == 0) {
-            break;
-        } else {
-            send(sockfd, buffer, strlen(buffer), 0);
-        }
-
-        bzero(buffer, BUFFER_SZ);
-    }
-
-    catch_ctrl_c_and_exit(2);
-}
-*/
 int conectGame(char *ip,int port)
 {
     setbuf(stdin, 0);
