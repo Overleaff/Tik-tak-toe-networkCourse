@@ -54,7 +54,7 @@ char updatedElo1[100]="";
 
 char gameType[100];
 void split(char a[100]){
-    printf("Str:%s\n",a);
+    //printf("Str:%s\n",a);
     char * token = strtok(a, "|");
 
       //printf( " %s\n", token );00
@@ -336,8 +336,8 @@ void *multiplayerGame(void *arg)
                 return NULL;
             }
 
-            pthread_detach(pthread_self());
-            pthread_cancel(multiplayer_game);
+            pthread_detach(pthread_self());  // thu hoi tai nguyen
+            pthread_cancel(multiplayer_game); // huy thread ngay
         }
     }
 

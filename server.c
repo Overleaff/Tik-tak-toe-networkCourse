@@ -564,7 +564,7 @@ void *handle_client(void *arg)
                         {
                             printf("Room delete:%d\n", room_number);
                             queue_remove_room(room_number);
-                            roomUid++;
+                            roomUid++; //OR  roomUid --
                         }
                     }
                     else if (strcmp(command, "START") == 0)
@@ -671,6 +671,8 @@ void *handle_client(void *arg)
                                 {
                                     if (rooms[j]->game->gameStatus == 0)
                                     {
+                                        strcpy(rooms[j]->state, rooms[j]->roomType);
+                                        strcat(rooms[j]->state, "waiting start");
                                         bzero(buffer, BUFFER_SZ);
                                         sprintf(buffer, "[SERVER] game over\n");
                                         send_message(buffer, cli->uid);
@@ -720,17 +722,19 @@ void *handle_client(void *arg)
                                                                         char append1[20]=""; //New variable
 
                                     if (rooms[j]->game->gameStatus == 0)
-                                    {   
+                                    {
+
                                         strcpy(rooms[j]->state, rooms[j]->roomType);
                                         strcat(rooms[j]->state, "waiting start");
 
                                         if (rooms[j]->game->playerTurn == rooms[j]->player1->uid)
                                         {
+                                            
                                             bzero(buffer, BUFFER_SZ);
-                                            // TODO : NG 1 WIN CAP NHAT ELO
-
-                                            sprintf(buffer, strcat(append, strtok(rooms[j]->state, " ")));
-                                            strcat(append, "|");
+                                            // TODO : NG 2 WIN CAP NHAT ELO
+                                             
+                                            strcpy(buffer, strtok(rooms[j]->state, " "));
+                                            strcat(buffer, "|");
                                             if (strstr(rooms[j]->state, "[RANK]"))
                                             {
                                                 EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 0);
@@ -740,13 +744,15 @@ void *handle_client(void *arg)
                                                 sprintf(append1, "%d", secondElo);
                                                 strcat(append, append1);
                                                 strcat(append, "|");
-                                                
+
+                                                rooms[j]->player1->userInfo.elo=firstElo;
+                                                rooms[j]->player2->userInfo.elo = secondElo;
                                                 saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
                                                 saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
                                                 traversingList2(root2);
                                             }
                                            
-                                        sprintf(buffer, strcat(append,"win1|"));
+                                        strcat(buffer, strcat(append,"win1|"));
                                         printf("%s\n",buffer);
 
                                         send_message(buffer, rooms[j]->player1->uid);
@@ -760,10 +766,10 @@ void *handle_client(void *arg)
                                         else if (rooms[j]->game->playerTurn == rooms[j]->player2->uid)
                                         {
                                             
-                                            // TODO : NG 2 WIN CAP NHAT ELO
+                                            // TODO : NG 1 WIN CAP NHAT ELO
                                                  bzero(buffer, BUFFER_SZ);
-                                                 sprintf(buffer, strcat(append, strtok(rooms[j]->state, " ")));
-                                                 strcat(append, "|");
+                                                 strcpy(buffer, strtok(rooms[j]->state, " "));
+                                                 strcat(buffer, "|");
                                                  // save data to file
                                                  if (strstr(rooms[j]->state, "[RANK]"))
                                                  {
@@ -774,12 +780,15 @@ void *handle_client(void *arg)
                                                      sprintf(append1, "%d", secondElo);
                                                      strcat(append, append1);
                                                      strcat(append, "|");
+                                                      
+                                                     rooms[j]->player1->userInfo.elo = firstElo;
+                                                     rooms[j]->player2->userInfo.elo = secondElo;
                                                      saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
                                                      saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
                                                      traversingList2(root2);
                                                  }
 
-                                           sprintf(buffer, strcat(append,"win2|"));
+                                           strcat(buffer, strcat(append,"win2|"));
                                            printf("%s\n", buffer);
 
                                            send_message(buffer, rooms[j]->player1->uid);
