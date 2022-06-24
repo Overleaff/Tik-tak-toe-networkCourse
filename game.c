@@ -474,31 +474,35 @@ void selectMode(){
 void recv_msg_handler()
 {
     char message[BUFFER_SZ] = {};
+    char rep[BUFFER_SZ] = {};
+    char status[100];
     //response res;
     flashScreen();
 
     while (1)
     {
      
-        int receive = recv(sockfd, message, BUFFER_SZ, 0);
+        int receive = recv(sockfd, rep, BUFFER_SZ, 0);
+        strcpy(status,strtok(rep,"|"));
+        strcpy(message,strtok(NULL,"|"));
         //int receive = recv(sockfd, &res, sizeof(res), 0);
         //strcpy(message, message);
         if (receive > 0)
         {
-            if (strcmp(message, "ok1") == 0)
+            if (strcmp(status, "SELECT_MODE") == 0)
             { // TODO: THEM BIEN IS LOGIN DE THAY DOI TERMINAL
                 selectMode();
                 str_overwrite_stdout();
                 
                 
             }
-            else if (strcmp(message, "ok") == 0)
-            { //TODO: THEM BIEN IS LOGIN DE THAY DOI TERMINAL
+            else if (strcmp(status, "MENU") == 0 || strcmp(status, "GAME_OVER") == 0)
+            { //TODO: 
                 
                 menu();
                 str_overwrite_stdout();
             }
-            else if (strcmp(message, "start game\n") == 0)
+            else if (strcmp(status, "START_1") == 0)
             {
                 pthread_cancel(lobby_thread);
                 // pthread_kill(recv_msg_thread, SIGUSR1);
@@ -514,7 +518,7 @@ void recv_msg_handler()
 
                 // pthread_kill(lobby_thread, SIGUSR1);
             }
-            else if (strcmp(message, "start game2\n") == 0)
+            else if (strcmp(status, "START_2") == 0)
             {
                 pthread_cancel(lobby_thread);
                 // pthread_kill(recv_msg_thread, SIGUSR1);
@@ -530,18 +534,18 @@ void recv_msg_handler()
                   
                 // pthread_kill(lobby_thread, SIGUSR1);
             }
-            else if (strstr(message,"USER"))  //login thanh cong
+            else if (strcmp(status,"LGIN_SUCC") == 0) // login thanh cong
             {   
-                char *p = strtok(message,"|");
+                
                 printf("Login Successful\n");
                 strcpy(username, name);
-                strcpy(name, strtok(NULL,"|"));
+                strcpy(name, message);
                 flashScreen();
                 printf("Hello:%s\n", name);
                 logged_menu();
                 str_overwrite_stdout();
             }
-            else if (strcmp("Logout Successful\n",message)==0){
+            else if (strcmp(status, "LOGOUT_SUCC") == 0){
                 printf(">Good bye %s\n", username);
                 strcpy(username, "");
                 strcpy(name,username);
@@ -550,20 +554,24 @@ void recv_msg_handler()
                 menu();
                 str_overwrite_stdout();
             }
+            else if (receive == 0)
+            {
+                break;
+            }
             else
                 {
+                    //printf("%s---%s", status,message);
                     printf("%s", message);
                     str_overwrite_stdout();
                 }
-        }
-        else if (receive == 0)
-        {
-            break;
-        }
+        
+       
 
         bzero(message, BUFFER_SZ);
+        bzero(rep,BUFFER_SZ);
+        bzero(status, 100);
     }
-}
+    }}
 
 int conectGame(char *ip,int port)
 {
