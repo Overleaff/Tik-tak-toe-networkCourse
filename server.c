@@ -141,7 +141,8 @@ void *handle_client(void *arg)
                 // send_message(buffer, cli->uid);
                 trim_lf(buffer, strlen(buffer));
                 printf("> client: '%s' has been send '%s' command\n", cli->userInfo.name, buffer);
-                sscanf(buffer, "%s %i", &command[0], &number);
+                sscanf(buffer, "%[^|]|%i", &command[0], &number);
+                
                 if (strstr(buffer, "GUEST"))
                 {
                     p = strtok(buffer, "|");
@@ -149,10 +150,10 @@ void *handle_client(void *arg)
                     strcpy(cli->userInfo.name, name);
                     bzero(buffer, BUFFER_SZ);
                     strcpy(buffer, "MENU|");
-                        strcat(buffer, "ok");
+                    strcat(buffer, "ok");
                     send_message(buffer, cli->uid);
                 }
-                    if (strstr(buffer, "SIGNUP"))
+                   else if (strstr(buffer, "SIGNUP"))
                     { // TODO:luu vao file
                         p = strtok(buffer, "|");
                         strcpy(user, strtok(NULL, "|"));
@@ -208,7 +209,7 @@ void *handle_client(void *arg)
                             send_message(buffer, cli->uid);
                         }
                     }
-                    if (strstr(buffer, "LOGOUT"))
+                   else if (strstr(buffer, "LOGOUT"))
                     {
                         if (isLogin == 0)
                         {
@@ -248,7 +249,7 @@ void *handle_client(void *arg)
                             // TODO:save data vao file database
                         }
                     }
-                    if (strstr(buffer, "LOGIN"))
+                    else if (strstr(buffer, "LOGIN"))
                     {
                         if (isLogin == 1)
                         {
@@ -319,7 +320,7 @@ void *handle_client(void *arg)
                         }
                     }
 
-                    if (strcmp(buffer, "CREATE") == 0 || strcmp(buffer, "CREATE RANK") == 0)
+                    else if (strcmp(buffer, "CREATE") == 0 || strcmp(buffer, "CREATE RANK") == 0)
                     {
                         if (strcmp(buffer, "CREATE RANK") == 0 && isLogin == 0)
                         {
@@ -389,7 +390,7 @@ void *handle_client(void *arg)
                                 queue_add_room(room);
                                 bzero(buffer, BUFFER_SZ);
                                 bzero(tmp, BUFFER_SZ);
-                                strcpy(buffer, "ROOM_ALR|");
+                                strcpy(buffer, "ROOM_SUCC|");
                                 sprintf(tmp, "[SERVER] you created a new room number %i\n", roomUid);
                                 strcat(buffer, tmp);
                                 
@@ -427,7 +428,7 @@ void *handle_client(void *arg)
 
                                     bzero(buffer, BUFFER_SZ);
                                     bzero(tmp, BUFFER_SZ);
-                                    strcpy(buffer, "ROOM_ALR|");
+                                    strcpy(buffer, "JOIN_ALR|");
                                     sprintf(tmp, "[SERVER] you are already in the room number: %i\n", rooms[j]->uid);
                                     strcat(buffer, tmp);
                                    
@@ -500,7 +501,7 @@ void *handle_client(void *arg)
                                     printf("%s enter the room number: %i\n", cli->userInfo.name, number);
 
                                     bzero(tmp, BUFFER_SZ);
-                                    strcpy(buffer, "JOIN_ROOM|");
+                                    strcpy(buffer, "JOIN_SUCC|");
                                     sprintf(tmp, "[SERVER] '%s' entered your room\n", cli->userInfo.name);
                                     strcat(buffer, tmp);
                                     //sprintf(buffer, "[SERVER] '%s' entered your room\n", cli->userInfo.name);
@@ -508,7 +509,7 @@ void *handle_client(void *arg)
 
                                     bzero(buffer, BUFFER_SZ);
                                     bzero(tmp, BUFFER_SZ);
-                                    strcpy(buffer, "JOIN_ROOM|");
+                                    strcpy(buffer, "JOIN_SUCC|");
                                     sprintf(tmp, "[SERVER] you has entered the room number: %i\n", number);
                                     strcat(buffer, tmp);
                                    // sprintf(buffer, "[SERVER] you has entered the room number: %i\n", number);
@@ -695,8 +696,9 @@ void *handle_client(void *arg)
                         if (startgame == 1)
                         {
                             room_game->game = (game_t *)malloc(sizeof(game_t));
+                            // gameStatus 1: play 0: win/lost  -1:draw
                             room_game->game->gameStatus = 1;
-                            room_game->game->round = 0;
+                            room_game->game->round = 1;
                             room_game->game->playerTurn = room_game->player1->uid;
                             strcpy(room_game->state, room_game->roomType);
 
@@ -726,27 +728,41 @@ void *handle_client(void *arg)
                             send_message(buffer, room_game->player2->uid);
 
                             sleep(1);
-
+                            
+                            //send name
                             bzero(buffer, BUFFER_SZ);
-                            sprintf(buffer, "%s\n", room_game->player2->userInfo.name);
+                            bzero(tmp, BUFFER_SZ);
+                            strcpy(buffer, "LEAVE_ROOM|");
+                            sprintf(tmp, "%s\n", room_game->player2->userInfo.name);
+                            strcat(buffer, tmp);
+                            
                             send_message(buffer, room_game->player1->uid);
 
                             sleep(0.1);
 
                             bzero(buffer, BUFFER_SZ);
-                            sprintf(buffer, "%s\n", room_game->player1->userInfo.name);
+                            bzero(tmp, BUFFER_SZ);
+                            strcpy(buffer, "LEAVE_ROOM|");
+                            sprintf(tmp, "%s\n", room_game->player1->userInfo.name);
+                            strcat(buffer, tmp);
                             send_message(buffer, room_game->player2->uid);
 
                             sleep(1);
 
                             bzero(buffer, BUFFER_SZ);
-                            sprintf(buffer, "vez1\n");
+                            strcpy(buffer, "PLAYER_TURN|");
+                           
+                            strcat(buffer, "1");
+                            //sprintf(buffer, "vez1\n");
                             send_message(buffer, room_game->player1->uid);
 
                             sleep(0.2);
 
                             bzero(buffer, BUFFER_SZ);
-                            sprintf(buffer, "vez2\n");
+                            strcpy(buffer, "PLAYER_TURN|");
+                            
+                            strcat(buffer, "2");
+                            //sprintf(buffer, "vez2\n");
                             send_message(buffer, room_game->player2->uid);
                         }
                     }
@@ -825,6 +841,7 @@ void *handle_client(void *arg)
                                         {
                                             
                                             bzero(buffer, BUFFER_SZ);
+                                            bzero(tmp, BUFFER_SZ);
                                             // TODO : NG 2 WIN CAP NHAT ELO
                                              
                                             strcpy(buffer, strtok(rooms[j]->state, " "));
@@ -832,7 +849,7 @@ void *handle_client(void *arg)
                                             if (strstr(rooms[j]->state, "[RANK]"))
                                             {
                                                 EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 0);
-                                                
+
                                                 sprintf(append, "%d", firstElo); // put the int into a string
                                                 strcat(append, "|");
                                                 sprintf(append1, "%d", secondElo);
@@ -845,23 +862,29 @@ void *handle_client(void *arg)
                                                 saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
                                                 traversingList2(root2);
                                             }
-                                           
-                                        strcat(buffer, strcat(append,"win1|"));
-                                        printf("%s\n",buffer);
+                                        
+                                        //send to player1
+                                        strcpy(tmp,buffer);
+                                        strcat(buffer,append);
+                                        strcat(buffer, "lose|");
+                                        printf("Player 1 lose:%s\n", buffer);
 
                                         send_message(buffer, rooms[j]->player1->uid);
                                             //sau khi cap nhat elo
                                             // pass name and elo user
                                            
                                             sleep(0.5);
-
-                                            send_message(buffer, rooms[j]->player2->uid);
+                                            strcat(tmp, append);
+                                            strcat(tmp, "win|");
+                                            send_message(tmp, rooms[j]->player2->uid);
+                                            printf("Player 2 win:%s\n", tmp);
                                         }
                                         else if (rooms[j]->game->playerTurn == rooms[j]->player2->uid)
                                         {
                                             
                                             // TODO : NG 1 WIN CAP NHAT ELO
                                                  bzero(buffer, BUFFER_SZ);
+                                                 bzero(tmp, BUFFER_SZ);
                                                  strcpy(buffer, strtok(rooms[j]->state, " "));
                                                  strcat(buffer, "|");
                                                  // save data to file
@@ -881,19 +904,29 @@ void *handle_client(void *arg)
                                                      saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
                                                      traversingList2(root2);
                                                  }
+                                                 strcpy(tmp, buffer);
+                                                 strcat(buffer, append);
+                                                 strcat(buffer, "win|");
+                                                 // strcat(buffer, strcat(append,"win2|"));
+                                                 printf("Player1 win:%s\n", buffer);
 
-                                           strcat(buffer, strcat(append,"win2|"));
-                                           printf("%s\n", buffer);
+                                                 send_message(buffer, rooms[j]->player1->uid);
 
-                                           send_message(buffer, rooms[j]->player1->uid);
-
-                                           sleep(0.5);
-
-                                           send_message(buffer, rooms[j]->player2->uid);
+                                                 sleep(0.5);
+                                                 //send to 2
+                                                 strcat(tmp, append);
+                                                 strcat(tmp, "lose|");
+                                                 send_message(tmp, rooms[j]->player2->uid);
+                                                 printf("Player 2 lose:%s\n", tmp);
                                         }
 
                                         bzero(buffer, BUFFER_SZ);
-                                        strcpy(buffer, "GAME_OVER|");
+                                        bzero(tmp, BUFFER_SZ);
+                                        //GAME ROUND =0
+                                        strcpy(rooms[j]->state, rooms[j]->roomType);
+                                        strcat(rooms[j]->state, "waiting start");
+                                        rooms[j]->game->round=0;
+                                            strcpy(buffer, "GAME_OVER|");
                                         strcat(buffer, "ok");
                                         send_message(buffer, rooms[j]->player1->uid);
 
@@ -902,44 +935,111 @@ void *handle_client(void *arg)
                                         send_message(buffer, rooms[j]->player2->uid);
                                         break;
                                     }
-
-                                    if (rooms[j]->game->playerTurn == rooms[j]->player1->uid)
-                                    {
-                                        bzero(buffer, BUFFER_SZ);
-                                        sprintf(buffer, "vez1\n");
-                                        send_message(buffer, rooms[j]->player1->uid);
-
-                                        sleep(0.5);
-
-                                        bzero(buffer, BUFFER_SZ);
-                                        sprintf(buffer, "vez2\n");
-                                        send_message(buffer, rooms[j]->player2->uid);
-                                    }
-                                    else if (rooms[j]->game->playerTurn == rooms[j]->player2->uid)
-                                    {
-                                        bzero(buffer, BUFFER_SZ);
-                                        sprintf(buffer, "vez2\n");
-                                        send_message(buffer, rooms[j]->player1->uid);
-
-                                        sleep(0.5);
-
-                                        bzero(buffer, BUFFER_SZ);
-                                        sprintf(buffer, "vez1\n");
-                                        send_message(buffer, rooms[j]->player2->uid);
-                                    }
-
                                     rooms[j]->game->round++;
-                                }
+                                    //TODO : DRAW PART
+                                    if (rooms[j]->game->round == 10)
+                                    {
+                                        bzero(rooms[j]->state,100);
+                                        strcpy(rooms[j]->state, rooms[j]->roomType);
+                                        strcat(rooms[j]->state, "waiting start");
+                                        rooms[j]->game->round=1;
+
+
+                                        bzero(buffer, BUFFER_SZ);
+                                        strcpy(buffer, strtok(rooms[j]->state, " "));
+                                        strcat(buffer, "|");
+                                        // save data to file
+                                        if (strstr(rooms[j]->state, "[RANK]"))
+                                        {  
+                                            
+                                            EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 1);
+
+                                            sprintf(append, "%d", secondElo); // put the int into a string
+                                            strcat(append, "|");
+                                            sprintf(append1, "%d", firstElo);
+                                            strcat(append, append1);
+                                            strcat(append, "|");
+                                             
+                                            rooms[j]->player1->userInfo.elo = firstElo;
+                                            rooms[j]->player2->userInfo.elo = secondElo;
+                                            saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
+                                            saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
+                                            traversingList2(root2);
+                                        }
+
+                                        strcat(buffer, strcat(append, "draw|"));
+                                        printf("%s\n", buffer);
+
+                                        send_message(buffer, rooms[j]->player1->uid);
+
+                                        sleep(0.5);
+
+                                        send_message(buffer, rooms[j]->player2->uid);
+
+                                        bzero(buffer, BUFFER_SZ);
+
+                                        strcpy(rooms[j]->state, rooms[j]->roomType);
+                                        strcat(rooms[j]->state, "waiting start");
+                                        rooms[j]->game->round = 0;
+                                        strcpy(buffer, "GAME_OVER|");
+                                        strcat(buffer, "ok");
+                                        send_message(buffer, rooms[j]->player1->uid);
+
+                                        sleep(0.5);
+
+                                        send_message(buffer, rooms[j]->player2->uid);
+                                        break;
+                                    }
+                                        if (rooms[j]->game->playerTurn == rooms[j]->player1->uid)
+                                        {
+                                            bzero(buffer, BUFFER_SZ);
+                                            strcpy(buffer, "PLAYER_TURN|");
+
+                                            strcat(buffer, "1");
+                                            // sprintf(buffer, "vez1\n");
+                                            send_message(buffer, rooms[j]->player1->uid);
+
+                                            sleep(0.5);
+
+                                            bzero(buffer, BUFFER_SZ);
+                                            strcpy(buffer, "PLAYER_TURN|");
+                                            strcat(buffer, "2");
+                                            // sprintf(buffer, "vez2\n");
+                                            send_message(buffer, rooms[j]->player2->uid);
+                                        }
+                                        else if (rooms[j]->game->playerTurn == rooms[j]->player2->uid)
+                                        {
+                                            bzero(buffer, BUFFER_SZ);
+                                            strcpy(buffer, "PLAYER_TURN|");
+                                            strcat(buffer, "2");
+                                            // sprintf(buffer, "vez2\n");
+                                            send_message(buffer, rooms[j]->player1->uid);
+
+                                            sleep(0.5);
+
+                                            bzero(buffer, BUFFER_SZ);
+                                            strcpy(buffer, "PLAYER_TURN|");
+                                            strcat(buffer, "1");
+                                            // sprintf(buffer, "vez1\n");
+                                            send_message(buffer, rooms[j]->player2->uid);
+                                        }
+                                    }
                                 //break;
                             }
                         }
 
                         pthread_mutex_unlock(&rooms_mutex);
+                    }else{
+                        bzero(buffer, BUFFER_SZ);
+                        strcpy(buffer, "INVALID_CMD|");
+                        strcat(buffer, "Invalid command\n");
+                        send_message(buffer, cli->uid);
                     }
                 }
         }
         else if (receive == 0 || strcmp(buffer, "exit") == 0)
-        {
+        {  
+            // TODO: THEM PHAN LOGOUT VAO DAY
             sprintf(buffer, "%s has left\n", cli->userInfo.name);
             printf("%s", buffer);
             // send_message(buffer, cli->uid);

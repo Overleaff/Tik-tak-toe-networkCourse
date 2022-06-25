@@ -49,25 +49,36 @@ void showPositions()
 }
 
 char winState[100]="";
-char updatedElo[100]="";
-char updatedElo1[100]="";
+char updatedElo[100]="";  /*player 1*/
+char updatedElo1[100]=""; /*player 2*/
 
 char gameType[100];
-void split(char a[100]){
-    //printf("Str:%s\n",a);
-    char * token = strtok(a, "|");
 
-      //printf( " %s\n", token );00
+//dua tren turn declare
+void split(char a[100],int playerTurn){
+    //printf("Str:%s\n",a);
+    bzero(gameType,100);
+ bzero(winState,100);
+            
+            bzero(updatedElo,100);
+            bzero(updatedElo1,100);
+
+
+                 char *token = strtok(a, "|");
+
+    // printf( " %s\n", token );00
     strcpy(gameType, token);
 
 
     // if rank 
     if (strcmp(gameType, "[RANK]") == 0){
         token = strtok(NULL, "|");
+        
     strcat(updatedElo, token);
     token = strtok(NULL, "|");
-    strcat(updatedElo1, token);
-    }
+    strcat(updatedElo1, token);}
+    
+    
 
     token = strtok(NULL, "|");
     strcat(winState, token);
@@ -134,23 +145,31 @@ void *multiplayerGame(void *arg)
     int iterator;
     int linePlay, colPlay;
     int positionPlay;
-    int round = 0;
+    int round = 1;
     int gameStatus = 1;
     int valid_play = 0;
     int played;
     int numberPlayed;
+    //position array    (row,col)
     int posicoes[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
 
     char errorMessage[255] = {'\x00'};
-    char *nameCurrentPlayer;
-        char *nameCurrentPlayer1;
+    char *nameCurrentPlayer;  /*name player 1*/
+    char *nameCurrentPlayer1; /*name opponent*/
+    
+    // message
     char message[BUFFER_SZ] = {};
-    response res;
+    char rep[BUFFER_SZ] = {};
+    char status[100];
 
-    int receive = recv(sockfd, message, BUFFER_SZ, 0);
-    //strcpy(message, message);
+    // TODO : FORMAT   PLAYER2| NAME_PLAYER_2
+    int receive = recv(sockfd, rep, BUFFER_SZ, 0);
+   
     if (receive > 0)
-    {
+    {   
+        // handle message
+        strcpy(status, strtok(rep, "|"));
+        strcpy(message, strtok(NULL, "|"));
         setbuf(stdin, 0);
         trim_lf(message, strlen(message));
         sscanf(message, "%s", &namePlayer2[0]);
@@ -159,11 +178,11 @@ void *multiplayerGame(void *arg)
         setbuf(stdin, 0);
 
         bzero(message, BUFFER_SZ);
-
+        bzero(rep,100);
         createBoard(board);
-        round = 0;
+        round = 1;
 
-        while (round < 9 && gameStatus == 1)
+        while (round < 10 && gameStatus == 1)
         {
             if (playerTurn == 1)
             {
@@ -183,17 +202,20 @@ void *multiplayerGame(void *arg)
             while (valid_play == 0)
             {
                 bzero(message, BUFFER_SZ);
+                bzero(rep, 100);
 
-                int receive = recv(sockfd, message, BUFFER_SZ, 0);
+                int receive = recv(sockfd, rep, BUFFER_SZ, 0);
                 //strcpy(message, message);
+                printf("Receive:%s\n",rep);
                 if (receive > 0)
                 {
                     valid_play = 1;
-
+                    strcpy(status, strtok(rep, "|"));
+                    strcpy(message, strtok(NULL, "|"));
                     setbuf(stdin, 0);
                     setbuf(stdout, 0);
                     // your turn
-                    if (strcmp(message, "vez1\n") == 0)
+                    if (strcmp(message, "1") == 0)
                     {
                         do
                         {
@@ -211,12 +233,12 @@ void *multiplayerGame(void *arg)
                         } while (board[linePlay][colPlay] == 'X' || board[linePlay][colPlay] == 'O');
                         if (valid_play == 1)
                         {
-                            sprintf(message, "PLAY %i\n", positionPlay);
+                            sprintf(message, "PLAY|%i\n", positionPlay);
                             send(sockfd, message, strlen(message), 0);
                             bzero(message, BUFFER_SZ);
                         }
                     }
-                    else if (strcmp(message, "vez2\n") == 0)
+                    else if (strcmp(message, "2") == 0)
                     {
                         printf("The other player is playing...\n");
 
@@ -284,7 +306,7 @@ void *multiplayerGame(void *arg)
         }
 
         bzero(message, BUFFER_SZ);
-
+       //TODO : FORMAT | message
         int receive = recv(sockfd, message, BUFFER_SZ, 0);
         // strcpy(message, message);
         if (receive > 0)
@@ -293,31 +315,98 @@ void *multiplayerGame(void *arg)
             setbuf(stdout, 0);
 
           showBoard(board, (char *)&errorMessage);
-            split(message);
+            split(message,playerTurn);
             //printf("\nPlayer '%s' win!\nUpdated elo: '%s'", winState,updatedElo);
             if(strcmp(gameType,"[NORMAL]")==0){
-                if (strcmp(winState, "win1") == 0)
+                if (strcmp(winState, "win") == 0)
                 {
-                    printf("\n Player %s win!\n", nameCurrentPlayer);
-                    printf("\nPlayer '%s' lose!\n", nameCurrentPlayer1);
+                    printf("\n You win\n");
+                    if (playerTurn == 1)
+                    {
+                        //nameCurrentPlayer = (char *)&namePlayer1;
+                       // nameCurrentPlayer1 = (char *)&namePlayer2;
+                        printf("\nPlayer '%s' lose!\n", nameCurrentPlayer);
+                    }
+                    else
+                    {
+                        printf("\nPlayer '%s' lose!\n", nameCurrentPlayer1);
+                         
+                    }
+                    
                 }
-                else if (strcmp(winState, "win2") == 0)
+                else if (strcmp(winState, "lose") == 0)
                 {
-                    printf("\n Player %s  win!", nameCurrentPlayer);
-                    printf("\nPlayer '%s' lose!", nameCurrentPlayer1);
+                    printf("\nYou lose");
+                    if (playerTurn == 1)
+                    {
+                        // nameCurrentPlayer = (char *)&namePlayer1;
+                        // nameCurrentPlayer1 = (char *)&namePlayer2;
+                        printf("\nPlayer '%s' win!\n", nameCurrentPlayer);
+                    }
+                    else
+                    {
+                        printf("\n Player %s  win!", nameCurrentPlayer1);
+                    }
+                   
+                    
+                }else{
+                    printf("\nDraw match");
                 }
             }
                    
             else{
-            if (strcmp(winState, "win1") == 0)
-            {   
-                printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer, updatedElo);
-                printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1, updatedElo1);
-            }
-            else if (strcmp(winState, "win2") == 0)
+            if (strcmp(winState, "win") == 0)
             {
-                printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer,updatedElo);
-                printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1,updatedElo1);
+                printf("\n1You win!\nUpdated elo: '%s'", updatedElo); // khi tk1 win
+                printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1, updatedElo1);
+
+                /*
+                if (playerTurn == 1)
+                {
+                    printf("\n2You win!\nUpdated elo: '%s'",updatedElo1); // khi tk 2 win
+                    printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer, updatedElo);
+                }
+                else
+                {
+                    
+                }*/
+
+              
+            }
+            else if (strcmp(winState, "lose") == 0)
+            {
+                // lose dang bi nguoc
+                printf("\n1You lose!\nUpdated elo: '%s'", updatedElo1);
+                printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer, updatedElo);
+                /*
+                if (playerTurn == 1)
+                {   
+                    
+                }
+                else
+                {
+                    printf("\n2You lose!\nUpdated elo: '%s'", updatedElo1);
+                    printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer1, updatedElo);
+                }
+                */
+               
+                
+            }else{
+                printf("\nDraw match");
+
+                if (playerTurn == 1)
+                {
+                    printf("\nYour  elo: '%s'", updatedElo);
+                    printf("\nPlayer '%s'  elo: '%s'", nameCurrentPlayer1, updatedElo1);
+                    
+                }
+                else
+                {
+                    printf("\nYour  elo: '%s'", updatedElo1);
+                    printf("\nPlayer '%s'  elo: '%s'", nameCurrentPlayer, updatedElo);
+                   
+                }
+                
             }
             }
             printf("\nEnd of the game!\n");
@@ -376,7 +465,7 @@ void *lobby(void *arg)
            
             strcpy(name,uname);
         }
-        /*
+        
         if (strcmp(buffer, "JOIN") == 0)
         {
             int roomId;
@@ -385,7 +474,7 @@ void *lobby(void *arg)
             sprintf(str, "%d", roomId);
             strcat(buffer, "|");
             strcat(buffer, str);
-        }*/
+        }
         if (strcmp(buffer, "SIGNUP") == 0)
         {
             memset(uname, '\0', (strlen(uname) + 1));
@@ -478,7 +567,7 @@ void recv_msg_handler()
     char status[100];
     //response res;
     flashScreen();
-
+   
     while (1)
     {
      
