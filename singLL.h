@@ -6,10 +6,10 @@ typedef struct phoneaddress_t
     char name[50];
     char pass[50];
     int elo;
-    // char ip[50];
-    int status; // 0:offline
+    int status; 
 } elementtype;
 
+// 0:offline
 struct t
 {
     elementtype element;
@@ -381,7 +381,7 @@ void append(char *str)
     // scanf("%d", &n);
     printf(" The lines are : \n");
 
-    fprintf(fptr3, "\n%s", str);
+    fprintf(fptr3, "%s", str);
 
     fclose(fptr3);
 }

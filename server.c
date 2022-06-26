@@ -9,16 +9,22 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "singLL.h"
+
 #include <pthread.h>
 #include <sys/types.h>
 #include "customSTD.h"
 #include <math.h>
+#include "singLL.h"
+#include "authenticate.h"
+
+
+
 #define MAX_CLIENTS 10
 #define MAX_ROOMS 5
 #define BUFFER_SZ 2048
 #define NAME_LEN 100
-
+#define KEY 0XAED
+//Symmetric 1 key for encrypt and decrypt
 static _Atomic unsigned int cli_count = 0;
 static int uid = 10;
 static int roomUid = 1;
@@ -93,28 +99,28 @@ void EloRating(int Ra, int Rb, int K, int d)
         pthread_mutex_unlock(&clients_mutex);
     }
 
+#include "server_auth/server_auth.h"
+    void *handle_client(void *arg)
+    {
+        char buffer[BUFFER_SZ];
+        char command[BUFFER_SZ];
+        char tmp[BUFFER_SZ];
+        int number;
+        char name[NAME_LEN];
+        int leave_flag = 0;
+        int flag = 0;
+        int isRank = 0;
+        int isLogin = 0; /* logout then isLogin=0 */
+        client_t *cli = (client_t *)arg;
+        char user[100];
+        char pass[100];
 
-void *handle_client(void *arg)
-{
-    char buffer[BUFFER_SZ];
-    char command[BUFFER_SZ];
-    char tmp[BUFFER_SZ]; 
-    int number;
-    char name[NAME_LEN];
-    int leave_flag = 0;
-    int flag = 0;
-    int isRank = 0;
-    int isLogin = 0; /* logout then isLogin=0 */
-    client_t *cli = (client_t *)arg;
-    char user[100];
-    char pass[100];
-
-    // name nhan tin hieu
+        // name nhan tin hieu
         recv(cli->sockfd, name, NAME_LEN, 0);
 
         cli->userInfo.elo = 1200;
         cli->userInfo.status=0;
-        strcpy(cli->userInfo.name, "new member");
+        strcpy(cli->userInfo.name, "unknown");
         sprintf(buffer, "> %s has joined\n", cli->userInfo.name);
         printf("%s", buffer);
 
@@ -144,69 +150,20 @@ void *handle_client(void *arg)
                 sscanf(buffer, "%[^|]|%i", &command[0], &number);
                 
                 if (strstr(buffer, "GUEST"))
-                {
+                {  
+                    handleGuest(name,cli,buffer);
+                     /*
                     p = strtok(buffer, "|");
                     strcpy(name, strtok(NULL, "|"));
                     strcpy(cli->userInfo.name, name);
                     bzero(buffer, BUFFER_SZ);
                     strcpy(buffer, "MENU|");
                     strcat(buffer, "ok");
-                    send_message(buffer, cli->uid);
+                    send_message(buffer, cli->uid);*/
                 }
                    else if (strstr(buffer, "SIGNUP"))
                     { // TODO:luu vao file
-                        p = strtok(buffer, "|");
-                        strcpy(user, strtok(NULL, "|"));
-                        printf("userName register received :%s\n", user);
-                        strcpy(pass, strtok(NULL, "|"));
-                        printf("password register received :%s\n", pass);
-                        int fl = 1;
-                        userNode *n;
-                        for (n = root2; n != NULL; n = n->next)
-                        {
-                            if (strcmp(user, n->element.name) == 0)
-                            {
-                                fl = 0;
-                                break;
-                            }
-                        }
-
-                        if (fl == 0)
-                        {
-                            bzero(buffer, BUFFER_SZ);
-                            strcpy(buffer, "REG_FAIL|");
-                            strcat(buffer, "Name exist.Register fail.\n");
-                            //sprintf(buffer, "Name exist.Register fail.\n");
-                            send_message(buffer, cli->uid);
-                        }
-                        else
-                        {
-                            elementtype ele;
-                            strcpy(ele.name, user);
-                            strcpy(ele.pass, pass);
-                            ele.elo = 1200;
-                            ele.status = 0;
-                            char str[1000] = "";
-                            char tmp[50];
-
-                            strcat(str, user);
-                            strcat(str, " ");
-                            strcat(str, pass);
-                            strcat(str, " ");
-                            sprintf(tmp, "%d", ele.elo);
-                            strcat(str, tmp);
-                            strcat(str, " ");
-                            sprintf(tmp, "%d", ele.status);
-                            strcat(str, tmp);
-                            append(str);
-
-                            insertAtHead2(ele);
-                            traversingList2(root2);
-                            bzero(buffer, BUFFER_SZ);
-                            strcpy(buffer, "REG_SUCC|");
-                            strcat(buffer, "Register Successful\n");
-                            //sprintf(buffer, "Register Successful\n");
-                            send_message(buffer, cli->uid);
+                        handleReg(cli,buffer);
                         }
                     }
                    else if (strstr(buffer, "LOGOUT"))
@@ -344,8 +301,8 @@ void *handle_client(void *arg)
                                     {
                                         bzero(buffer, BUFFER_SZ);
                                         strcpy(buffer, "ROOM_ALR|");
-                                        strcat(buffer, "[SERVER] you are already in the room\n");
-                                        //sprintf(buffer, "[SERVER] you are already in the room\n");
+                                        strcat(buffer, "you are already in the room\n");
+                                        //sprintf(buffer, "you are already in the room\n");
                                         send_message(buffer, cli->uid);
                                         flag = 1;
                                         break;
@@ -357,8 +314,8 @@ void *handle_client(void *arg)
                                         {
                                             bzero(buffer, BUFFER_SZ);
                                             strcpy(buffer, "ROOM_ALR|");
-                                            strcat(buffer, "[SERVER] you are already in the room\n");
-                                            //sprintf(buffer, "[SERVER] you are already in the room\n");
+                                            strcat(buffer, "you are already in the room\n");
+                                            //sprintf(buffer, "you are already in the room\n");
                                             send_message(buffer, cli->uid);
                                             flag = 1;
                                             break;
@@ -391,7 +348,7 @@ void *handle_client(void *arg)
                                 bzero(buffer, BUFFER_SZ);
                                 bzero(tmp, BUFFER_SZ);
                                 strcpy(buffer, "ROOM_SUCC|");
-                                sprintf(tmp, "[SERVER] you created a new room number %i\n", roomUid);
+                                sprintf(tmp, "you created a new room number %i\n", roomUid);
                                 strcat(buffer, tmp);
                                 
                                 send_message(buffer, cli->uid);
@@ -429,7 +386,7 @@ void *handle_client(void *arg)
                                     bzero(buffer, BUFFER_SZ);
                                     bzero(tmp, BUFFER_SZ);
                                     strcpy(buffer, "JOIN_ALR|");
-                                    sprintf(tmp, "[SERVER] you are already in the room number: %i\n", rooms[j]->uid);
+                                    sprintf(tmp, "you are already in the room number: %i\n", rooms[j]->uid);
                                     strcat(buffer, tmp);
                                    
                                     send_message(buffer, cli->uid);
@@ -468,7 +425,7 @@ void *handle_client(void *arg)
                                                 
                                                 strcpy(buffer, "ROOM_ALR|");
                                                 
-                                                strcat(buffer, "[SERVER] you are already in the room\n");
+                                                strcat(buffer, "you are already in the room\n");
                                                 send_message(buffer, cli->uid);
                                                 break;
                                             }
@@ -477,9 +434,9 @@ void *handle_client(void *arg)
                                             bzero(buffer, BUFFER_SZ);
                                             bzero(tmp, BUFFER_SZ);
                                             strcpy(buffer, "ROOM_FULL|");
-                                            sprintf(tmp, "[SERVER] room number: %i, is already full\n", rooms[i]->uid);
+                                            sprintf(tmp, "room number: %i, is already full\n", rooms[i]->uid);
                                             strcat(buffer, tmp);
-                                           // sprintf(buffer, "[SERVER] room number: %i, is already full\n", rooms[i]->uid);
+                                           // sprintf(buffer, "room number: %i, is already full\n", rooms[i]->uid);
                                             send_message(buffer, cli->uid);
                                             break;
                                      }
@@ -502,17 +459,17 @@ void *handle_client(void *arg)
 
                                     bzero(tmp, BUFFER_SZ);
                                     strcpy(buffer, "JOIN_SUCC|");
-                                    sprintf(tmp, "[SERVER] '%s' entered your room\n", cli->userInfo.name);
+                                    sprintf(tmp, "'%s' entered your room\n", cli->userInfo.name);
                                     strcat(buffer, tmp);
-                                    //sprintf(buffer, "[SERVER] '%s' entered your room\n", cli->userInfo.name);
+                                    //sprintf(buffer, "'%s' entered your room\n", cli->userInfo.name);
                                     send_message(buffer, rooms[i]->player1->uid);
 
                                     bzero(buffer, BUFFER_SZ);
                                     bzero(tmp, BUFFER_SZ);
                                     strcpy(buffer, "JOIN_SUCC|");
-                                    sprintf(tmp, "[SERVER] you has entered the room number: %i\n", number);
+                                    sprintf(tmp, "you has entered the room number: %i\n", number);
                                     strcat(buffer, tmp);
-                                   // sprintf(buffer, "[SERVER] you has entered the room number: %i\n", number);
+                                   // sprintf(buffer, "you has entered the room number: %i\n", number);
                                     send_message(buffer, cli->uid);
                                     break;
                                     }
@@ -527,9 +484,9 @@ void *handle_client(void *arg)
                             bzero(buffer, BUFFER_SZ);
                             bzero(tmp, BUFFER_SZ);
                             strcpy(buffer, "ROOM_NOT_FOUND|");
-                            sprintf(tmp, "[SERVER] could not find the room number %i\n", number);
+                            sprintf(tmp, "could not find the room number %i\n", number);
                             strcat(buffer, tmp);
-                            //sprintf(buffer, "[SERVER] could not find the room number %i\n", number);
+                            //sprintf(buffer, "could not find the room number %i\n", number);
                             send_message(buffer, cli->uid);
                         }
                     }
@@ -584,9 +541,9 @@ void *handle_client(void *arg)
                                    
                                         bzero(tmp, BUFFER_SZ);
                                         strcpy(buffer, "LEAVE_ROOM|");
-                                        sprintf(tmp, "[SERVER] %s left the room, now you are the owner\n", rooms[i]->player1->userInfo.name);
+                                        sprintf(tmp, "%s left the room, now you are the owner\n", rooms[i]->player1->userInfo.name);
                                         strcat(buffer, tmp);
-                                        //sprintf(buffer, "[SERVER] %s left the room, now you are the owner\n", rooms[i]->player1->userInfo.name);
+                                        //sprintf(buffer, "%s left the room, now you are the owner\n", rooms[i]->player1->userInfo.name);
                                         send_message(buffer, rooms[i]->player2->uid);
 
                                         rooms[i]->player1 = rooms[i]->player2;
@@ -606,9 +563,9 @@ void *handle_client(void *arg)
 
                                     bzero(tmp, BUFFER_SZ);
                                     strcpy(buffer, "LEAVE_ROOM|");
-                                    sprintf(tmp, "[SERVER] you left the room %i\n", rooms[i]->uid);
+                                    sprintf(tmp, "you left the room %i\n", rooms[i]->uid);
                                     strcat(buffer, tmp);
-                                    //sprintf(buffer, "[SERVER] you left the room %i\n", rooms[i]->uid);
+                                    //sprintf(buffer, "you left the room %i\n", rooms[i]->uid);
                                     send_message(buffer, cli->uid);
                                     break;
                                 }
@@ -618,10 +575,10 @@ void *handle_client(void *arg)
 
                                     bzero(tmp, BUFFER_SZ);
                                     strcpy(buffer, "LEAVE_ROOM|");
-                                    sprintf(tmp, "[SERVER] %s left the room\n", rooms[i]->player2->userInfo.name);
+                                    sprintf(tmp, "%s left the room\n", rooms[i]->player2->userInfo.name);
                                     strcat(buffer, tmp);
 
-                                   // sprintf(buffer, "[SERVER] %s left the room\n", rooms[i]->player2->userInfo.name);
+                                   // sprintf(buffer, "%s left the room\n", rooms[i]->player2->userInfo.name);
                                     send_message(buffer, rooms[i]->player1->uid);
 
                                     rooms[i]->player2 = 0;
@@ -631,9 +588,9 @@ void *handle_client(void *arg)
                                     bzero(buffer, BUFFER_SZ);
                                     bzero(tmp, BUFFER_SZ);
                                     strcpy(buffer, "LEAVE_ROOM|");
-                                    sprintf(tmp, "[SERVER] you left the room %i\n", rooms[i]->uid);
+                                    sprintf(tmp, "you left the room %i\n", rooms[i]->uid);
                                     strcat(buffer, tmp);
-                                    //sprintf(buffer, "[SERVER] you left the room %i\n", rooms[i]->uid);
+                                    //sprintf(buffer, "you left the room %i\n", rooms[i]->uid);
                                     send_message(buffer, cli->uid);
                                     break;
                                 }
@@ -673,8 +630,8 @@ void *handle_client(void *arg)
                                    
                                     strcpy(buffer, "START_FAIL|");
 
-                                    strcat(buffer, "[SERVER] 2 players are required to start the game\n");
-                                    //sprintf(buffer, "[SERVER] 2 players are required to start the game\n");
+                                    strcat(buffer, "2 players are required to start the game\n");
+                                    //sprintf(buffer, "2 players are required to start the game\n");
                                     send_message(buffer, cli->uid);
                                     break;
                                 }
@@ -683,8 +640,8 @@ void *handle_client(void *arg)
                                     bzero(buffer, BUFFER_SZ);
                                     strcpy(buffer, "START_FAIL|");
 
-                                    strcat(buffer, "[SERVER] only the owner of the room can start\n");
-                                    // sprintf(buffer, "[SERVER] only the owner of the room can start\n");
+                                    strcat(buffer, "only the owner of the room can start\n");
+                                    // sprintf(buffer, "only the owner of the room can start\n");
                                     send_message(buffer, cli->uid);
                                     break;
                                 }
@@ -783,7 +740,7 @@ void *handle_client(void *arg)
                                         bzero(buffer, BUFFER_SZ);
                                         //check this
                                         strcpy(buffer,"GAME_OVER|");
-                                        strcat(buffer, "[SERVER] game over\n");
+                                        strcat(buffer, "game over\n");
                                         send_message(buffer, cli->uid);
                                         //break;
                                         continue;
@@ -850,9 +807,9 @@ void *handle_client(void *arg)
                                             {
                                                 EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 0);
 
-                                                sprintf(append, "%d", firstElo); // put the int into a string
+                                                sprintf(append, "%d", secondElo); // put the int into a string
                                                 strcat(append, "|");
-                                                sprintf(append1, "%d", secondElo);
+                                                sprintf(append1, "%d", firstElo);
                                                 strcat(append, append1);
                                                 strcat(append, "|");
 
@@ -908,7 +865,7 @@ void *handle_client(void *arg)
                                                  strcat(buffer, append);
                                                  strcat(buffer, "win|");
                                                  // strcat(buffer, strcat(append,"win2|"));
-                                                 printf("Player1 win:%s\n", buffer);
+                                                 printf("Player 1 win:%s\n", buffer);
 
                                                  send_message(buffer, rooms[j]->player1->uid);
 

@@ -7,10 +7,10 @@ typedef struct
     int sockfd;
     int uid;
     elementtype userInfo;
-    char username[100];   // name khi chua login tmp
+    char username[100];   
    
 } client_t;
-
+// name khi chua login tmp
 typedef struct
 {
     char board[3][3];
