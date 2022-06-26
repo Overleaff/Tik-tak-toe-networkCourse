@@ -1,16 +1,15 @@
-void handleCreateRoom(int *isLogin, int *flag, int *roomUid, client_t *cli);
-void handelJoin(int *isLogin, int *number, client_t *cli);
-void handleCreateRoom(int *isLogin, int *flag, int *roomUid, client_t *cli);
-void handleListRooms(client_t *cli);
+void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[]);
+void handleJoin(int *isLogin, int *number, client_t *cli);
 void handlePlay(int *number, client_t *cli);
-void handleLeave(int *roomUid, client_t *cli);
+void handleListRooms(client_t *cli);
+void handleLeave( client_t *cli);
+void handleStart(client_t *cli);
 
-void handleCreateRoom(int *isLogin, int *flag, int *roomUid, client_t *cli)
+void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
 {
-    {
-        char buffer[BUFFER_SZ];
+    
         char tmp[BUFFER_SZ];
-        if (strcmp(buffer, "CREATE RANK") == 0 && isLogin == 0)
+        if (strcmp(buffer, "CREATE RANK") == 0 && *isLogin == 0)
         {
             bzero(buffer, BUFFER_SZ);
             strcpy(buffer, "ROOM_FAIL|");
@@ -63,7 +62,7 @@ void handleCreateRoom(int *isLogin, int *flag, int *roomUid, client_t *cli)
                 room_t *room = (room_t *)malloc(sizeof(room_t));
                 room->player1 = cli;
                 room->player2 = 0;
-                room->uid = *roomUid;
+                room->uid = roomUid;
                 printf("Roomid create:%d\n", room->uid);
                 if (strcmp(buffer, "CREATE") == 0)
                 {
@@ -79,15 +78,16 @@ void handleCreateRoom(int *isLogin, int *flag, int *roomUid, client_t *cli)
                 bzero(buffer, BUFFER_SZ);
                 bzero(tmp, BUFFER_SZ);
                 strcpy(buffer, "ROOM_SUCC|");
-                sprintf(tmp, "you created a new room number %i\n", *roomUid);
+                sprintf(tmp, "you created a new room number %i\n", roomUid);
                 strcat(buffer, tmp);
 
                 send_message(buffer, cli->uid);
-                *roomUid++;
+                roomUid++;
             }
         }
-    }
-    void handelJoin(int *isLogin, int *number, client_t *cli)
+    
+}
+    void handleJoin(int *isLogin, int *number, client_t *cli)
     {
         char buffer[BUFFER_SZ];
         char tmp[BUFFER_SZ];
@@ -221,7 +221,7 @@ void handleCreateRoom(int *isLogin, int *flag, int *roomUid, client_t *cli)
         }
     }
 
-    void handleListRooms(client_t * cli)
+    void handleListRooms(client_t *cli)
     {
         char buffer[BUFFER_SZ];
         pthread_mutex_lock(&rooms_mutex);
@@ -254,7 +254,7 @@ void handleCreateRoom(int *isLogin, int *flag, int *roomUid, client_t *cli)
         pthread_mutex_unlock(&rooms_mutex);
     }
 
-    void handleLeave(int *roomUid, client_t *cli)
+    void handleLeave( client_t *cli)
     {
         char buffer[BUFFER_SZ];
         char tmp[BUFFER_SZ];
@@ -336,7 +336,7 @@ void handleCreateRoom(int *isLogin, int *flag, int *roomUid, client_t *cli)
         {
             printf("Room delete:%d\n", room_number);
             queue_remove_room(room_number);
-            *roomUid++; // OR  roomUid --
+            roomUid++; // OR  roomUid --
         }
     }
 
@@ -605,10 +605,128 @@ void handleCreateRoom(int *isLogin, int *flag, int *roomUid, client_t *cli)
 
         pthread_mutex_unlock(&rooms_mutex);
     }
-    /*
+
+    
 
 
 
-    void handleStart
+    void handleStart(client_t *cli){
+        char buffer[BUFFER_SZ];
+        char tmp[BUFFER_SZ];
+        int startgame = 0;
+        room_t *room_game;
 
-    */
+        pthread_mutex_lock(&rooms_mutex);
+
+        for (int j = 0; j < MAX_ROOMS; j++)
+        {
+            if (rooms[j])
+            {
+                if (rooms[j]->player1->uid == cli->uid)
+                {
+                    if (rooms[j]->player2 != 0)
+                    {
+                        startgame = 1;
+                        room_game = rooms[j];
+                        break;
+                    }
+
+                    bzero(buffer, BUFFER_SZ);
+
+                    strcpy(buffer, "START_FAIL|");
+
+                    strcat(buffer, "2 players are required to start the game\n");
+                    // sprintf(buffer, "2 players are required to start the game\n");
+                    send_message(buffer, cli->uid);
+                    break;
+                }
+                else if (rooms[j]->player2->uid == cli->uid)
+                {
+                    bzero(buffer, BUFFER_SZ);
+                    strcpy(buffer, "START_FAIL|");
+
+                    strcat(buffer, "only the owner of the room can start\n");
+                    // sprintf(buffer, "only the owner of the room can start\n");
+                    send_message(buffer, cli->uid);
+                    break;
+                }
+            }
+        }
+
+        pthread_mutex_unlock(&rooms_mutex);
+
+        if (startgame == 1)
+        {
+            room_game->game = (game_t *)malloc(sizeof(game_t));
+            // gameStatus 1: play 0: win/lost  -1:draw
+            room_game->game->gameStatus = 1;
+            room_game->game->round = 1;
+            room_game->game->playerTurn = room_game->player1->uid;
+            strcpy(room_game->state, room_game->roomType);
+
+            strcat(room_game->state, "playing now");
+
+            for (int linha = 0; linha < 3; linha++)
+            {
+                for (int coluna = 0; coluna < 3; coluna++)
+                {
+                    room_game->game->board[linha][coluna] = '-';
+                }
+            }
+
+            sleep(1);
+
+            bzero(buffer, BUFFER_SZ);
+            strcpy(buffer, "START_1|");
+            strcat(buffer, "start game");
+
+            send_message(buffer, room_game->player1->uid);
+
+            sleep(0.1);
+
+            bzero(buffer, BUFFER_SZ);
+            strcpy(buffer, "START_2|");
+            strcat(buffer, "start game1");
+            send_message(buffer, room_game->player2->uid);
+
+            sleep(1);
+
+            // send name
+            bzero(buffer, BUFFER_SZ);
+            bzero(tmp, BUFFER_SZ);
+            strcpy(buffer, "LEAVE_ROOM|");
+            sprintf(tmp, "%s\n", room_game->player2->userInfo.name);
+            strcat(buffer, tmp);
+
+            send_message(buffer, room_game->player1->uid);
+
+            sleep(0.1);
+
+            bzero(buffer, BUFFER_SZ);
+            bzero(tmp, BUFFER_SZ);
+            strcpy(buffer, "LEAVE_ROOM|");
+            sprintf(tmp, "%s\n", room_game->player1->userInfo.name);
+            strcat(buffer, tmp);
+            send_message(buffer, room_game->player2->uid);
+
+            sleep(1);
+
+            bzero(buffer, BUFFER_SZ);
+            strcpy(buffer, "PLAYER_TURN|");
+
+            strcat(buffer, "1");
+            // sprintf(buffer, "vez1\n");
+            send_message(buffer, room_game->player1->uid);
+
+            sleep(0.2);
+
+            bzero(buffer, BUFFER_SZ);
+            strcpy(buffer, "PLAYER_TURN|");
+
+            strcat(buffer, "2");
+            // sprintf(buffer, "vez2\n");
+            send_message(buffer, room_game->player2->uid);
+        }
+    }
+
+    
