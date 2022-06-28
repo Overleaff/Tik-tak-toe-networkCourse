@@ -68,10 +68,10 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                 {
                     strcpy(room->roomType, "[NORMAL] ");
                 }
-                else
-                    strcpy(room->roomType, "[RANK] ");
+                else{
+                strcpy(room->roomType, "[RANK] ");}
                 strcpy(room->state, room->roomType);
-                strcat(room->state, "waiting for secound player");
+                strcat(room->state, "waiting for second player");
 
                 // add room to queue
                 queue_add_room(room);
@@ -224,33 +224,32 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
     void handleListRooms(client_t *cli)
     {
         char buffer[BUFFER_SZ];
+        char *list = (char *)malloc(BUFFER_SZ * sizeof(char));
         pthread_mutex_lock(&rooms_mutex);
-
+        bzero(buffer, BUFFER_SZ);
+        strcpy(buffer, "ROOM_LISTS|");
         for (int i = 0; i < MAX_ROOMS; i++)
         {
             if (rooms[i])
             {
-                char *list = (char *)malloc(BUFFER_SZ * sizeof(char));
+                
 
                 if (rooms[i]->player2 != 0)
                 {
                     sprintf(list, "%i)\n    room state: %s  \n    player1: %s - elo: %d\n    player2: %s - elo: %d\n", rooms[i]->uid, rooms[i]->state, rooms[i]->player1->userInfo.name, rooms[i]->player1->userInfo.elo, rooms[i]->player2->userInfo.name, rooms[i]->player2->userInfo.elo);
                 }
                 else
-                {
+                {  // remove by roomUid
                     sprintf(list, "%i)\n    room state: %s \n    player1: %s - elo: %d\n", rooms[i]->uid, rooms[i]->state, rooms[i]->player1->userInfo.name, rooms[i]->player1->userInfo.elo);
                 }
-
-                bzero(buffer, BUFFER_SZ);
-
-                strcpy(buffer, "ROOM_LISTS|");
-
                 strcat(buffer, list);
-                send_message(buffer, cli->uid);
-                free(list);
             }
         }
-
+          if(list !=NULL){
+              
+              send_message(buffer, cli->uid);
+              free(list);
+          }
         pthread_mutex_unlock(&rooms_mutex);
     }
 

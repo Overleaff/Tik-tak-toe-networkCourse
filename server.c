@@ -146,7 +146,7 @@ void *handle_client(void *arg)
                 trim_lf(buffer, strlen(buffer));
                 printf("> client: '%s' has been send '%s' command\n", cli->userInfo.name, buffer);
                 sscanf(buffer, "%[^|]|%i", &command[0], &number);
-
+                
                 if (strstr(buffer, "GUEST"))
                 {
                     handleGuest(name, cli, buffer);
