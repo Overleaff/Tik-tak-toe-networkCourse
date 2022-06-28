@@ -14,6 +14,8 @@
 #include <sys/types.h>
 #include "utils/customSTD.h"
 #include <math.h>
+
+pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
 #include "utils/user.h"
 #include "authenticate.h"
 
@@ -31,14 +33,17 @@ int firstElo, secondElo;
 int posicoes[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
 
 // client structure
+pthread_mutex_t rooms_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_mutex_t reg_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t auth_mutex = PTHREAD_MUTEX_INITIALIZER;
 #include "utils/room.h"
 
 client_t *clients[MAX_CLIENTS];
 room_t *rooms[MAX_ROOMS];
 
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t rooms_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t files_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 
 #include "utils/queueManager.h"
 

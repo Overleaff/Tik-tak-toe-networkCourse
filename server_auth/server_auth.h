@@ -49,6 +49,8 @@ void handleLogin(int *isLogin, client_t *cli, char buffer[])
         printf("userName received :%s\n", user);
         strcpy(pass, strtok(NULL, "|"));
         printf("password received :%s\n", pass);
+
+        //pthread_mutex_lock(&auth_mutex);
         for (n = root2; n != NULL; n = n->next)
         {
             if (strcmp(user, n->element.name) == 0 && strcmp(pass, n->element.pass) == 0)
@@ -72,6 +74,7 @@ void handleLogin(int *isLogin, client_t *cli, char buffer[])
                 }
             }
         }
+        
 
         if (fl == 0)
         {
@@ -98,6 +101,7 @@ void handleLogin(int *isLogin, client_t *cli, char buffer[])
             // sprintf(buffer, "Login failure\n");
             send_message(buffer, cli->uid);
         }
+       // pthread_mutex_unlock(&auth_mutex);
     }
 }
 
@@ -119,6 +123,8 @@ void handleReg(client_t *cli, char buffer[])
     encrypt(pass, KEY);
     int fl = 1;
     userNode *n;
+     
+    //pthread_mutex_lock(&reg_mutex);
     for (n = root2; n != NULL; n = n->next)
     {
         if (strcmp(user, n->element.name) == 0)
@@ -127,7 +133,7 @@ void handleReg(client_t *cli, char buffer[])
             break;
         }
     }
-
+    
     if (fl == 0)
     {
         bzero(buffer, BUFFER_SZ);
@@ -165,6 +171,7 @@ void handleReg(client_t *cli, char buffer[])
         // sprintf(buffer, "Register Successful\n");
         send_message(buffer, cli->uid);
     }
+    //pthread_mutex_lock(&reg_mutex);
 }
 /*
 Handle logout request

@@ -5,10 +5,12 @@ void handleListRooms(client_t *cli);
 void handleLeave( client_t *cli);
 void handleStart(client_t *cli);
 
+//sua lai cac ham theo pointer
 void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
 {
     
         char tmp[BUFFER_SZ];
+        node *p;
         if (strcmp(buffer, "CREATE RANK") == 0 && *isLogin == 0)
         {
             bzero(buffer, BUFFER_SZ);
@@ -23,11 +25,11 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
 
             pthread_mutex_lock(&rooms_mutex);
 
-            for (int i = 0; i < MAX_ROOMS; i++)
+            for (p = root; p != NULL; p = p->next)
             {
-                if (rooms[i])
+                if (p!=NULL)
                 {
-                    if (rooms[i]->player1->uid == cli->uid)
+                    if (p->element.player1->uid == cli->uid)
                     {
                         bzero(buffer, BUFFER_SZ);
                         strcpy(buffer, "ROOM_ALR|");
@@ -38,9 +40,9 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                         break;
                     }
 
-                    if (rooms[i]->player2 != 0)
+                    if (p->element.player2 != 0)
                     {
-                        if (rooms[i]->player2->uid == cli->uid)
+                        if (p->element.player2->uid == cli->uid)
                         {
                             bzero(buffer, BUFFER_SZ);
                             strcpy(buffer, "ROOM_ALR|");
@@ -74,7 +76,11 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                 strcat(room->state, "waiting for second player");
 
                 // add room to queue
-                queue_add_room(room);
+                //queue_add_room(room);
+                 
+                insertAtHead(*room);
+                traversingList(root);
+
                 bzero(buffer, BUFFER_SZ);
                 bzero(tmp, BUFFER_SZ);
                 strcpy(buffer, "ROOM_SUCC|");
@@ -94,16 +100,16 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
         int researched = 0;
         int already = 0;
         pthread_mutex_lock(&rooms_mutex);
-
-        for (int j = 0; j < MAX_ROOMS; j++)
+        node *p;
+        for (p=root;p!=NULL;p=p->next)
         {
-            if (rooms[j])
+            if (p!=NULL)
             {
-                if (rooms[j]->player1->uid == cli->uid)
+                if (p->element.player1->uid == cli->uid)
                 {
 
                     // checkLogin
-                    if (strstr(rooms[j]->state, "[RANK] ") && *isLogin == 0)
+                    if (strstr(p->element.state, "[RANK] ") && *isLogin == 0)
                     {
                         bzero(buffer, BUFFER_SZ);
                         strcpy(buffer, "JOIN_FAIL|");
@@ -117,7 +123,7 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                     bzero(buffer, BUFFER_SZ);
                     bzero(tmp, BUFFER_SZ);
                     strcpy(buffer, "JOIN_ALR|");
-                    sprintf(tmp, "you are already in the room number: %i\n", rooms[j]->uid);
+                    sprintf(tmp, "you are already in the room number: %i\n", p->element.uid);
                     strcat(buffer, tmp);
 
                     send_message(buffer, cli->uid);
@@ -136,19 +142,19 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
 
         pthread_mutex_lock(&rooms_mutex);
 
-        for (int i = 0; i < MAX_ROOMS; i++)
+        for (p = root; p != NULL; p=p->next)
         {
-            if (rooms[i])
+            if (p != NULL)
             {
-                if (rooms[i]->uid == *number)
+                if (p->element.uid == *number)
                 {
 
                     researched = 1;
 
-                    if (rooms[i]->player2 != 0)
+                    if (p->element.player2 != 0)
                     {
 
-                        if (rooms[i]->player2->uid == cli->uid)
+                        if (p->element.player2->uid == cli->uid)
                         {
                             bzero(buffer, BUFFER_SZ);
 
@@ -162,17 +168,19 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                         bzero(buffer, BUFFER_SZ);
                         bzero(tmp, BUFFER_SZ);
                         strcpy(buffer, "ROOM_FULL|");
-                        sprintf(tmp, "room number: %i, is already full\n", rooms[i]->uid);
+                        sprintf(tmp, "room number: %i, is already full\n", p->element.uid);
                         strcat(buffer, tmp);
                         // sprintf(buffer, "room number: %i, is already full\n", rooms[i]->uid);
                         send_message(buffer, cli->uid);
                         break;
                     }
 
-                    rooms[i]->player2 = cli;
-                    if (strstr(rooms[i]->state, "[RANK] ") && *isLogin == 0)
-                    {
-                        rooms[i]->player2 = 0;
+                   // rooms[i]->player2 = cli;
+                   p->element.player2=cli;
+                    if (strstr(p->element.state, "[RANK] ") && *isLogin == 0)
+                    {   
+                        p->element.player2=0;
+                        //rooms[i]->player2 = 0;
                         // printf("Xin chao %d", *isLogin);
                         bzero(buffer, BUFFER_SZ);
                         strcpy(buffer, "JOIN_FAIL|");
@@ -182,8 +190,8 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                     }
                     else
                     {
-                        strcpy(rooms[i]->state, rooms[i]->roomType);
-                        strcat(rooms[i]->state, "waiting start");
+                        strcpy(p->element.state, p->element.roomType);
+                        strcat(p->element.state, "waiting start");
                         bzero(buffer, BUFFER_SZ);
                         printf("%s enter the room number: %i\n", cli->userInfo.name, *number);
 
@@ -192,7 +200,7 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                         sprintf(tmp, "'%s' entered your room\n", cli->userInfo.name);
                         strcat(buffer, tmp);
                         // sprintf(buffer, "'%s' entered your room\n", cli->userInfo.name);
-                        send_message(buffer, rooms[i]->player1->uid);
+                        send_message(buffer, p->element.player1->uid);
 
                         bzero(buffer, BUFFER_SZ);
                         bzero(tmp, BUFFER_SZ);
@@ -224,32 +232,43 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
     void handleListRooms(client_t *cli)
     {
         char buffer[BUFFER_SZ];
-        char *list = (char *)malloc(BUFFER_SZ * sizeof(char));
+        
         pthread_mutex_lock(&rooms_mutex);
         bzero(buffer, BUFFER_SZ);
         strcpy(buffer, "ROOM_LISTS|");
-        for (int i = 0; i < MAX_ROOMS; i++)
-        {
-            if (rooms[i])
+        node *p;
+        
+        if(root==NULL){
+           
+            bzero(buffer, BUFFER_SZ);
+            strcpy(buffer, "NO_LISTS|No room available\n|");
+            send_message(buffer, cli->uid);
+            
+        }else{
+            char *list = (char *)malloc(BUFFER_SZ * sizeof(char));
+            for (p = root; p != NULL; p = p->next)
             {
-                
-
-                if (rooms[i]->player2 != 0)
+                if (p != NULL)
                 {
-                    sprintf(list, "%i)\n    room state: %s  \n    player1: %s - elo: %d\n    player2: %s - elo: %d\n", rooms[i]->uid, rooms[i]->state, rooms[i]->player1->userInfo.name, rooms[i]->player1->userInfo.elo, rooms[i]->player2->userInfo.name, rooms[i]->player2->userInfo.elo);
+
+                    if (p->element.player2 != 0)
+                    {
+                        sprintf(list, "%i)\n    room state: %s  \n    player1: %s - elo: %d\n    player2: %s - elo: %d\n", p->element.uid, p->element.state, p->element.player1->userInfo.name, p->element.player1->userInfo.elo, p->element.player2->userInfo.name, p->element.player2->userInfo.elo);
+                    }
+                    else
+                    { // remove by roomUid
+                        sprintf(list, "%i)\n    room state: %s \n    player1: %s - elo: %d\n", p->element.uid, p->element.state, p->element.player1->userInfo.name, p->element.player1->userInfo.elo);
+                    }
+                    strcat(buffer, list);
                 }
-                else
-                {  // remove by roomUid
-                    sprintf(list, "%i)\n    room state: %s \n    player1: %s - elo: %d\n", rooms[i]->uid, rooms[i]->state, rooms[i]->player1->userInfo.name, rooms[i]->player1->userInfo.elo);
-                }
-                strcat(buffer, list);
-            }
         }
           if(list !=NULL){
               
               send_message(buffer, cli->uid);
               free(list);
           }
+        }
+          
         pthread_mutex_unlock(&rooms_mutex);
     }
 
@@ -259,68 +278,69 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
         char tmp[BUFFER_SZ];
         int remove_room = 0;
         int room_number = 0;
-
+        int count =0;
+        node *p;
         pthread_mutex_lock(&rooms_mutex);
         printf("HEllo\n");
-        for (int i = 0; i < MAX_ROOMS; i++)
-        {
-            if (rooms[i])
+        for (p = root; p != NULL; p = p->next)
+        {   count+=1;
+            if (p!=NULL)
             {
-                if (rooms[i]->player1->uid == cli->uid)
+                if (p->element.player1->uid == cli->uid)
                 {
-                    if (rooms[i]->player2 != 0)
+                    if (p->element.player2 != 0)
                     {
+                        // owner leave
                         bzero(buffer, BUFFER_SZ);
-
                         bzero(tmp, BUFFER_SZ);
                         strcpy(buffer, "LEAVE_ROOM|");
-                        sprintf(tmp, "%s left the room, now you are the owner\n", rooms[i]->player1->userInfo.name);
+                        sprintf(tmp, "%s left the room, now you are the owner\n", p->element.player1->userInfo.name);
                         strcat(buffer, tmp);
                         // sprintf(buffer, "%s left the room, now you are the owner\n", rooms[i]->player1->userInfo.name);
-                        send_message(buffer, rooms[i]->player2->uid);
+                        send_message(buffer,p->element.player2->uid);
 
-                        rooms[i]->player1 = rooms[i]->player2;
-                        rooms[i]->player2 = 0;
-                        strcpy(rooms[i]->state, rooms[i]->roomType);
-                        strcat(rooms[i]->state, "waiting for secound player");
+                      p->element.player1 = p->element.player2;
+                        p->element.player2 = 0;
+                        strcpy(p->element.state, p->element.roomType);
+                        strcat(p->element.state, "waiting for secound player");
                     }
                     else
                     { // ko co ai
                         // TODO : xoa room 1 trc roi ms xoa dc room 2
                         remove_room = 1;
-                        room_number = rooms[i]->uid;
+                        room_number = p->element.uid;
                     }
 
                     bzero(buffer, BUFFER_SZ);
 
                     bzero(tmp, BUFFER_SZ);
                     strcpy(buffer, "LEAVE_ROOM|");
-                    sprintf(tmp, "you left the room %i\n", rooms[i]->uid);
+                    sprintf(tmp, "you left the room %i\n", p->element.uid);
                     strcat(buffer, tmp);
                     // sprintf(buffer, "you left the room %i\n", rooms[i]->uid);
                     send_message(buffer, cli->uid);
                     break;
                 }
-                else if (rooms[i]->player2->uid == cli->uid)
+                else if (p->element.player2->uid == cli->uid)
                 {
+                    //other leave
                     bzero(buffer, BUFFER_SZ);
-
                     bzero(tmp, BUFFER_SZ);
                     strcpy(buffer, "LEAVE_ROOM|");
-                    sprintf(tmp, "%s left the room\n", rooms[i]->player2->userInfo.name);
+                    sprintf(tmp, "%s left the room\n", p->element.player2->userInfo.name);
                     strcat(buffer, tmp);
 
                     // sprintf(buffer, "%s left the room\n", rooms[i]->player2->userInfo.name);
-                    send_message(buffer, rooms[i]->player1->uid);
+                    send_message(buffer, p->element.player1->uid);
 
-                    rooms[i]->player2 = 0;
-                    strcpy(rooms[i]->state, rooms[i]->roomType);
-                    strcat(rooms[i]->state, "waiting for secound player");
+                    p->element.player2 = 0;
+                    strcpy(p->element.state, p->element.roomType);
+                    strcat(p->element.state, "waiting for secound player");
 
                     bzero(buffer, BUFFER_SZ);
                     bzero(tmp, BUFFER_SZ);
                     strcpy(buffer, "LEAVE_ROOM|");
-                    sprintf(tmp, "you left the room %i\n", rooms[i]->uid);
+                    sprintf(tmp, "you left the room %i\n", p->element.uid);
                     strcat(buffer, tmp);
                     // sprintf(buffer, "you left the room %i\n", rooms[i]->uid);
                     send_message(buffer, cli->uid);
@@ -330,12 +350,17 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
         }
 
         pthread_mutex_unlock(&rooms_mutex);
-        printf("HEllo1235\n");
+        //printf("HEllo1235\n");
         if (remove_room == 1)
         {
             printf("Room delete:%d\n", room_number);
-            queue_remove_room(room_number);
-            roomUid++; // OR  roomUid --
+            //queue_remove_room(room_number);
+            printf("Before\n");
+            traversingList(root);
+            deleteAtposi(room_number);
+            printf("After\n");
+            traversingList(root);
+            roomUid*=2; // OR  roomUid --
         }
     }
 
@@ -343,18 +368,20 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
     {
         char buffer[BUFFER_SZ];
         char tmp[BUFFER_SZ];
+        node *p;
         pthread_mutex_lock(&rooms_mutex);
 
-        for (int j = 0; j < MAX_ROOMS; j++)
+        for (p = root; p != NULL; p = p->next)
         {
-            if (rooms[j])
+         
+            if (p != NULL)
             {
-                if (rooms[j]->player1->uid == cli->uid || rooms[j]->player2->uid == cli->uid)
+                if (p->element.player1->uid == cli->uid || p->element.player2->uid == cli->uid)
                 {
-                    if (rooms[j]->game->gameStatus == 0)
+                    if (p->element.game->gameStatus == 0)
                     {
-                        strcpy(rooms[j]->state, rooms[j]->roomType);
-                        strcat(rooms[j]->state, "waiting start");
+                        strcpy(p->element.state, p->element.roomType);
+                        strcat(p->element.state, "waiting start");
                         bzero(buffer, BUFFER_SZ);
                         // check this
                         strcpy(buffer, "GAME_OVER|");
@@ -370,60 +397,60 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
 
                     int linhaJogada = posicoes[*number - 1][0];
                     int colunaJogada = posicoes[*number - 1][1];
-                    if (rooms[j]->game->playerTurn == rooms[j]->player1->uid)
+                    if (p->element.game->playerTurn == p->element.player1->uid)
                     {
-                        send_message(buffer, rooms[j]->player2->uid);
-                        rooms[j]->game->board[linhaJogada][colunaJogada] = 'X';
-                        rooms[j]->game->playerTurn = rooms[j]->player2->uid;
+                        send_message(buffer, p->element.player2->uid);
+                        p->element.game->board[linhaJogada][colunaJogada] = 'X';
+                        p->element.game->playerTurn = p->element.player2->uid;
                     }
-                    else if (rooms[j]->game->playerTurn == rooms[j]->player2->uid)
+                    else if (p->element.game->playerTurn == p->element.player2->uid)
                     {
-                        send_message(buffer, rooms[j]->player1->uid);
-                        rooms[j]->game->board[linhaJogada][colunaJogada] = 'O';
-                        rooms[j]->game->playerTurn = rooms[j]->player1->uid;
+                        send_message(buffer, p->element.player1->uid);
+                        p->element.game->board[linhaJogada][colunaJogada] = 'O';
+                        p->element.game->playerTurn = p->element.player1->uid;
                     }
 
                     for (int iterator = 0; iterator < 3; iterator++)
                     {
                         if (
                             (
-                                (rooms[j]->game->board[iterator][0] == rooms[j]->game->board[iterator][1]) && (rooms[j]->game->board[iterator][1] == rooms[j]->game->board[iterator][2]) && rooms[j]->game->board[iterator][0] != '-') ||
-                            ((rooms[j]->game->board[0][iterator] == rooms[j]->game->board[1][iterator]) && (rooms[j]->game->board[1][iterator] == rooms[j]->game->board[2][iterator]) && rooms[j]->game->board[0][iterator] != '-'))
+                                (p->element.game->board[iterator][0] == p->element.game->board[iterator][1]) && (p->element.game->board[iterator][1] == p->element.game->board[iterator][2]) && p->element.game->board[iterator][0] != '-') ||
+                            ((p->element.game->board[0][iterator] == p->element.game->board[1][iterator]) && (p->element.game->board[1][iterator] == p->element.game->board[2][iterator]) && p->element.game->board[0][iterator] != '-'))
                         {
-                            rooms[j]->game->gameStatus = 0;
+                            p->element.game->gameStatus = 0;
                         }
                     }
 
                     if (
                         (
-                            (rooms[j]->game->board[0][0] == rooms[j]->game->board[1][1]) && (rooms[j]->game->board[1][1] == rooms[j]->game->board[2][2]) && rooms[j]->game->board[0][0] != '-') ||
-                        ((rooms[j]->game->board[0][2] == rooms[j]->game->board[1][1]) && (rooms[j]->game->board[1][1] == rooms[j]->game->board[2][0]) && rooms[j]->game->board[0][2] != '-'))
+                            (p->element.game->board[0][0] == p->element.game->board[1][1]) && (p->element.game->board[1][1] == p->element.game->board[2][2]) && p->element.game->board[0][0] != '-') ||
+                        ((p->element.game->board[0][2] == p->element.game->board[1][1]) && (p->element.game->board[1][1] == p->element.game->board[2][0]) && p->element.game->board[0][2] != '-'))
                     {
-                        rooms[j]->game->gameStatus = 0;
+                        p->element.game->gameStatus = 0;
                     }
 
                     sleep(1);
                     char append[20] = "";  // New variable
                     char append1[20] = ""; // New variable
 
-                    if (rooms[j]->game->gameStatus == 0)
+                    if (p->element.game->gameStatus == 0)
                     {
 
-                        strcpy(rooms[j]->state, rooms[j]->roomType);
-                        strcat(rooms[j]->state, "waiting start");
+                        strcpy(p->element.state, p->element.roomType);
+                        strcat(p->element.state, "waiting start");
 
-                        if (rooms[j]->game->playerTurn == rooms[j]->player1->uid)
+                        if (p->element.game->playerTurn == p->element.player1->uid)
                         {
 
                             bzero(buffer, BUFFER_SZ);
                             bzero(tmp, BUFFER_SZ);
                             // TODO : NG 2 WIN CAP NHAT ELO
 
-                            strcpy(buffer, strtok(rooms[j]->state, " "));
+                            strcpy(buffer, strtok(p->element.state, " "));
                             strcat(buffer, "|");
-                            if (strstr(rooms[j]->state, "[RANK]"))
+                            if (strstr(p->element.state, "[RANK]"))
                             {
-                                EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 0);
+                                EloRating(p->element.player1->userInfo.elo, p->element.player2->userInfo.elo, 30, 0);
 
                                 sprintf(append, "%d", secondElo); // put the int into a string
                                 strcat(append, "|");
@@ -431,10 +458,10 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                                 strcat(append, append1);
                                 strcat(append, "|");
 
-                                rooms[j]->player1->userInfo.elo = firstElo;
-                                rooms[j]->player2->userInfo.elo = secondElo;
-                                saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
-                                saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
+                                p->element.player1->userInfo.elo = firstElo;
+                                p->element.player2->userInfo.elo = secondElo;
+                                saveData1(updateUserInfo(p->element.player1->userInfo.name, firstElo));
+                                saveData1(updateUserInfo(p->element.player2->userInfo.name, secondElo));
                                 traversingList2(root2);
                             }
 
@@ -444,28 +471,28 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                             strcat(buffer, "lose|");
                             printf("Player 1 lose:%s\n", buffer);
 
-                            send_message(buffer, rooms[j]->player1->uid);
+                            send_message(buffer, p->element.player1->uid);
                             // sau khi cap nhat elo
                             //  pass name and elo user
 
                             sleep(0.5);
                             strcat(tmp, append);
                             strcat(tmp, "win|");
-                            send_message(tmp, rooms[j]->player2->uid);
+                            send_message(tmp, p->element.player2->uid);
                             printf("Player 2 win:%s\n", tmp);
                         }
-                        else if (rooms[j]->game->playerTurn == rooms[j]->player2->uid)
+                        else if (p->element.game->playerTurn == p->element.player2->uid)
                         {
 
                             // TODO : NG 1 WIN CAP NHAT ELO
                             bzero(buffer, BUFFER_SZ);
                             bzero(tmp, BUFFER_SZ);
-                            strcpy(buffer, strtok(rooms[j]->state, " "));
+                            strcpy(buffer, strtok(p->element.state, " "));
                             strcat(buffer, "|");
                             // save data to file
-                            if (strstr(rooms[j]->state, "[RANK]"))
+                            if (strstr(p->element.state, "[RANK]"))
                             {
-                                EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 1);
+                                EloRating(p->element.player1->userInfo.elo, p->element.player2->userInfo.elo, 30, 1);
 
                                 sprintf(append, "%d", firstElo); // put the int into a string
                                 strcat(append, "|");
@@ -473,10 +500,10 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                                 strcat(append, append1);
                                 strcat(append, "|");
 
-                                rooms[j]->player1->userInfo.elo = firstElo;
-                                rooms[j]->player2->userInfo.elo = secondElo;
-                                saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
-                                saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
+                                p->element.player1->userInfo.elo = firstElo;
+                                p->element.player2->userInfo.elo = secondElo;
+                                saveData1(updateUserInfo(p->element.player1->userInfo.name, firstElo));
+                                saveData1(updateUserInfo(p->element.player2->userInfo.name, secondElo));
                                 traversingList2(root2);
                             }
                             strcpy(tmp, buffer);
@@ -485,48 +512,48 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                             // strcat(buffer, strcat(append,"win2|"));
                             printf("Player 1 win:%s\n", buffer);
 
-                            send_message(buffer, rooms[j]->player1->uid);
+                            send_message(buffer, p->element.player1->uid);
 
                             sleep(0.5);
                             // send to 2
                             strcat(tmp, append);
                             strcat(tmp, "lose|");
-                            send_message(tmp, rooms[j]->player2->uid);
+                            send_message(tmp, p->element.player2->uid);
                             printf("Player 2 lose:%s\n", tmp);
                         }
 
                         bzero(buffer, BUFFER_SZ);
                         bzero(tmp, BUFFER_SZ);
                         // GAME ROUND =0
-                        strcpy(rooms[j]->state, rooms[j]->roomType);
-                        strcat(rooms[j]->state, "waiting start");
-                        rooms[j]->game->round = 0;
+                        strcpy(p->element.state, p->element.roomType);
+                        strcat(p->element.state, "waiting start");
+                        p->element.game->round = 0;
                         strcpy(buffer, "GAME_OVER|");
                         strcat(buffer, "ok");
-                        send_message(buffer, rooms[j]->player1->uid);
+                        send_message(buffer, p->element.player1->uid);
 
                         sleep(0.5);
 
-                        send_message(buffer, rooms[j]->player2->uid);
+                        send_message(buffer, p->element.player2->uid);
                         break;
                     }
-                    rooms[j]->game->round++;
+                    p->element.game->round++;
                     // TODO : DRAW PART
-                    if (rooms[j]->game->round == 10)
+                    if (p->element.game->round == 10)
                     {
-                        bzero(rooms[j]->state, 100);
-                        strcpy(rooms[j]->state, rooms[j]->roomType);
-                        strcat(rooms[j]->state, "waiting start");
-                        rooms[j]->game->round = 1;
+                        bzero(p->element.state, 100);
+                        strcpy(p->element.state, p->element.roomType);
+                        strcat(p->element.state, "waiting start");
+                        p->element.game->round = 1;
 
                         bzero(buffer, BUFFER_SZ);
-                        strcpy(buffer, strtok(rooms[j]->state, " "));
+                        strcpy(buffer, strtok(p->element.state, " "));
                         strcat(buffer, "|");
                         // save data to file
-                        if (strstr(rooms[j]->state, "[RANK]"))
+                        if (strstr(p->element.state, "[RANK]"))
                         {
 
-                            EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 1);
+                            EloRating(p->element.player1->userInfo.elo, p->element.player2->userInfo.elo, 30, 1);
 
                             sprintf(append, "%d", secondElo); // put the int into a string
                             strcat(append, "|");
@@ -534,44 +561,44 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                             strcat(append, append1);
                             strcat(append, "|");
 
-                            rooms[j]->player1->userInfo.elo = firstElo;
-                            rooms[j]->player2->userInfo.elo = secondElo;
-                            saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
-                            saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
+                            p->element.player1->userInfo.elo = firstElo;
+                            p->element.player2->userInfo.elo = secondElo;
+                            saveData1(updateUserInfo(p->element.player1->userInfo.name, firstElo));
+                            saveData1(updateUserInfo(p->element.player2->userInfo.name, secondElo));
                             traversingList2(root2);
                         }
 
                         strcat(buffer, strcat(append, "draw|"));
                         printf("%s\n", buffer);
 
-                        send_message(buffer, rooms[j]->player1->uid);
+                        send_message(buffer, p->element.player1->uid);
 
                         sleep(0.5);
 
-                        send_message(buffer, rooms[j]->player2->uid);
+                        send_message(buffer, p->element.player2->uid);
 
                         bzero(buffer, BUFFER_SZ);
 
-                        strcpy(rooms[j]->state, rooms[j]->roomType);
-                        strcat(rooms[j]->state, "waiting start");
-                        rooms[j]->game->round = 0;
+                        strcpy(p->element.state, p->element.roomType);
+                        strcat(p->element.state, "waiting start");
+                        p->element.game->round = 0;
                         strcpy(buffer, "GAME_OVER|");
                         strcat(buffer, "ok");
-                        send_message(buffer, rooms[j]->player1->uid);
+                        send_message(buffer, p->element.player1->uid);
 
                         sleep(0.5);
 
-                        send_message(buffer, rooms[j]->player2->uid);
+                        send_message(buffer, p->element.player2->uid);
                         break;
                     }
-                    if (rooms[j]->game->playerTurn == rooms[j]->player1->uid)
+                    if (p->element.game->playerTurn == p->element.player1->uid)
                     {
                         bzero(buffer, BUFFER_SZ);
                         strcpy(buffer, "PLAYER_TURN|");
 
                         strcat(buffer, "1");
                         // sprintf(buffer, "vez1\n");
-                        send_message(buffer, rooms[j]->player1->uid);
+                        send_message(buffer, p->element.player1->uid);
 
                         sleep(0.5);
 
@@ -579,15 +606,15 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                         strcpy(buffer, "PLAYER_TURN|");
                         strcat(buffer, "2");
                         // sprintf(buffer, "vez2\n");
-                        send_message(buffer, rooms[j]->player2->uid);
+                        send_message(buffer, p->element.player2->uid);
                     }
-                    else if (rooms[j]->game->playerTurn == rooms[j]->player2->uid)
+                    else if (p->element.game->playerTurn == p->element.player2->uid)
                     {
                         bzero(buffer, BUFFER_SZ);
                         strcpy(buffer, "PLAYER_TURN|");
                         strcat(buffer, "2");
                         // sprintf(buffer, "vez2\n");
-                        send_message(buffer, rooms[j]->player1->uid);
+                        send_message(buffer, p->element.player1->uid);
 
                         sleep(0.5);
 
@@ -595,7 +622,7 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                         strcpy(buffer, "PLAYER_TURN|");
                         strcat(buffer, "1");
                         // sprintf(buffer, "vez1\n");
-                        send_message(buffer, rooms[j]->player2->uid);
+                        send_message(buffer, p->element.player2->uid);
                     }
                 }
                 // break;
@@ -615,18 +642,20 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
         int startgame = 0;
         room_t *room_game;
 
+        node *p;
         pthread_mutex_lock(&rooms_mutex);
 
-        for (int j = 0; j < MAX_ROOMS; j++)
+        for (p = root; p != NULL; p = p->next)
         {
-            if (rooms[j])
+
+            if (p != NULL)
             {
-                if (rooms[j]->player1->uid == cli->uid)
+                if (p->element.player1->uid == cli->uid)
                 {
-                    if (rooms[j]->player2 != 0)
+                    if (p->element.player2 != 0)
                     {
                         startgame = 1;
-                        room_game = rooms[j];
+                        room_game = &(p->element);
                         break;
                     }
 
@@ -639,7 +668,7 @@ void handleCreateRoom(int *isLogin, int *flag,  client_t *cli,char buffer[])
                     send_message(buffer, cli->uid);
                     break;
                 }
-                else if (rooms[j]->player2->uid == cli->uid)
+                else if (p->element.player2->uid == cli->uid)
                 {
                     bzero(buffer, BUFFER_SZ);
                     strcpy(buffer, "START_FAIL|");
