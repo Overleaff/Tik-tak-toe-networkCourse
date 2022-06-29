@@ -25,7 +25,7 @@
 
 volatile sig_atomic_t flag = 0;
 int sockfd = 0;
-char name[NAME_LEN];        // playerName
+char name[NAME_LEN]; // playerName
 int player = 1;
 
 pthread_t lobby_thread;     // send message thread
@@ -52,7 +52,7 @@ char winState[100] = "";    /*state game:win or lose*/
 char updatedElo[100] = "";  /*elo_player_1*/
 char updatedElo1[100] = ""; /*elo_player_2*/
 
-char gameType[100];     /*game mode: normal or rank*/
+char gameType[100]; /*game mode: normal or rank*/
 
 // dua tren turn declare
 void split(char a[100], int playerTurn)
@@ -66,7 +66,6 @@ void split(char a[100], int playerTurn)
 
     char *token = strtok(a, "|");
 
-     
     strcpy(gameType, token);
 
     // if rank
@@ -229,8 +228,8 @@ void *multiplayerGame(void *arg)
 
                         } while (board[linePlay][colPlay] == 'X' || board[linePlay][colPlay] == 'O');
                         if (valid_play == 1)
-                        {   
-                            makeMove(positionPlay,message);
+                        {
+                            makeMove(positionPlay, message);
                             //sprintf(message, "PLAY|%i\n", positionPlay);
                             send(sockfd, message, strlen(message), 0);
                             bzero(message, BUFFER_SZ);
