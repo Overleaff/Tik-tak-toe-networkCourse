@@ -375,20 +375,21 @@ void append(char *str)
     printf("\n\n Append multiple lines at the end of a text file :\n");
     printf("------------------------------------------------------\n");
     printf(" Input the file name to be opened : ");
-
+    
+     //pthread_mutex_lock(&file_mutex);
     fptr3 = fopen("database.txt", "a");
     printf(" Input the number of lines to be written : ");
     // scanf("%d", &n);
     printf(" The lines are : \n");
-
     fprintf(fptr3, "%s", str);
-
     fclose(fptr3);
+    //pthread_mutex_unlock(&file_mutex);
 }
 
 void saveData(char *filename, elementtype user)
 {
     FILE *fp;
+    //pthread_mutex_lock(&file_mutex);
     if ((fp = fopen(filename, "r")) == NULL)
     {
         printf("Cannot open.\n");
@@ -409,4 +410,5 @@ void saveData(char *filename, elementtype user)
         }
     }
     fclose(fp);
+    //pthread_mutex_lock(&file_mutex);
 }

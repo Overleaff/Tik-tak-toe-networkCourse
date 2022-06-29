@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+//add mutex when delete create join login
 typedef struct
 {
     struct sockaddr_in address;
@@ -71,21 +72,24 @@ void displayNode(node *p)
         return;
     }
     room_t tmp = p->element;
-    printf("Game\n");
+    printf("Game room:%d\n",tmp.uid);
+    /*
     printf("Round:%d\nPlayer Turn:%d", tmp.game->round, tmp.game->playerTurn);
     printf("Room\n");
     printf("Roomid:%d\nRoom type:%-20s\nState:%-100s\n", tmp.uid, tmp.roomType, tmp.state);
-    printf("Player\n");
+    printf("Player\n");*/
     printf("User 1:%s\nElo:%d",tmp.player1->userInfo.name,tmp.player1->userInfo.elo);
-    printf("User 2:%s\nElo:%d", tmp.player2->userInfo.name, tmp.player2->userInfo.elo);
+    //printf("User 2:%s\nElo:%d", tmp.player2->userInfo.name, tmp.player2->userInfo.elo);
 }
 
 void insertAtHead(room_t ele)
 {
+    pthread_mutex_lock(&rooms_mutex);
     node *new = makeNewNode(ele);
     new->next = root;
     root = new;
     cur = root;
+    pthread_mutex_unlock(&rooms_mutex);
 }
 
 void insertAfterCurrent(room_t element)
@@ -190,8 +194,22 @@ node *list_reverse(node *root)
     return prev;
 }
 
-void deleteAtposi(int pos)
-{
+void deleteAtposi(int roomNumber)
+{   printf("ROOM:%d\n",roomNumber);
+    int pos = -1;
+    node *p;
+    int found = 0;
+    pthread_mutex_lock(&rooms_mutex);
+    for(p=root;p!=NULL;p++){
+        pos = pos + 1;
+        if(p->element.uid == roomNumber){
+            found = 1;
+            break;
+        }
+    }
+    if(found==0){
+        pos = -1 ;
+    }
     cur = root;
     int i;
     for (i = 0; i < pos; i++)
@@ -210,6 +228,7 @@ void deleteAtposi(int pos)
         return;
     }
     deletecur();
+    pthread_mutex_unlock(&rooms_mutex);
 }
 
 void insertAtposi(room_t ele, int pos)
