@@ -57,9 +57,12 @@ void EloRating(int Ra, int Rb, int K, int d)
         secondElo = Rb + K * (0 - Pb);
     }
  
-    else {
+    else if (d == 0){
         firstElo = Ra + K * (0 - Pa);
         secondElo = Rb + K * (1 - Pb);
+    }else if (d == 2){
+        firstElo = Ra + K * (0.5 - Pa);
+        secondElo = Rb + K * (0.5 - Pb);
     }
     /*fflush(stdout);
     printf( "Ra = %d Rb = %d", Ra,Rb );*/
@@ -924,10 +927,25 @@ void *handle_client(void *arg)
                                         bzero(buffer, BUFFER_SZ);
                                         strcpy(buffer, strtok(rooms[j]->state, " "));
                                         strcat(buffer, "|");
-                                                 // save data to file
-                                        if (strstr(rooms[j]->state, "[RANK]"))
-                                        strcat(buffer, "x|x|draw|");
+                                                 // save data to file\//////////////
+                                        if (strstr(rooms[j]->state, "[RANK]")){
+                                                 EloRating(rooms[j]->player1->userInfo.elo, rooms[j]->player2->userInfo.elo, 30, 2);
+                                                     
+                                                     sprintf(append, "%d", firstElo); // put the int into a string
+                                                     strcat(append, "|");
+                                                     sprintf(append1, "%d", secondElo);
+                                                     strcat(append, append1);
+                                                     strcat(append, "|");
+
+                                                    rooms[j]->player1->userInfo.elo = firstElo;
+                                                     rooms[j]->player2->userInfo.elo = secondElo;
+                                                     saveData1(updateUserInfo(rooms[j]->player1->userInfo.name, firstElo));
+                                                     saveData1(updateUserInfo(rooms[j]->player2->userInfo.name, secondElo));
+                                                     traversingList2(root2);
+                                        }
+                                        strcat(buffer, strcat(append,"draw|"));
                                         printf("%s", buffer);
+
                                         send_message(buffer, rooms[j]->player1->uid);
                                         sleep(0.5);
                                         send_message(buffer, rooms[j]->player2->uid);

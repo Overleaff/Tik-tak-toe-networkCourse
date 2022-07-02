@@ -316,7 +316,8 @@ void *multiplayerGame(void *arg)
                        printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer,updatedElo);
                        printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1,updatedElo1);
                     }else if (strcmp(winState, "draw") == 0){
-                       printf("the result is draw, no elo updated");
+                        printf("\nThe two players are draw  \nUpdated elo'%s': '%s'", nameCurrentPlayer,updatedElo);
+                       printf("\nThe two players are draw  \nUpdated elo'%s': '%s'", nameCurrentPlayer1,updatedElo1);
                  }
                 }
             printf("\nEnd of the game!\n");
