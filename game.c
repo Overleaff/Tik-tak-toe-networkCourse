@@ -54,7 +54,7 @@ char updatedElo1[100]="";
 
 char gameType[100];
 void split(char a[100]){
-    //printf("Str:%s\n",a);
+    printf("Str:%s\n",a);
     char * token = strtok(a, "|");
 
       //printf( " %s\n", token );00
@@ -71,9 +71,6 @@ void split(char a[100]){
 
     token = strtok(NULL, "|");
     strcat(winState, token);
-   
-    
-
 }
 
 void showBoard(char board[3][3], char *errorMessage)
@@ -309,17 +306,19 @@ void *multiplayerGame(void *arg)
             }
                    
             else{
-            if (strcmp(winState, "win1") == 0)
-            {   
-                printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer, updatedElo);
-                printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1, updatedElo1);
-            }
-            else if (strcmp(winState, "win2") == 0)
-            {
-                printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer,updatedElo);
-                printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1,updatedElo1);
-            }
-            }
+                if (strcmp(winState, "win1") == 0)
+                 {   
+                        printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer, updatedElo);
+                        printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1, updatedElo1);
+                    }
+                    else if (strcmp(winState, "win2") == 0)
+                    {
+                       printf("\nPlayer '%s' win!\nUpdated elo: '%s'", nameCurrentPlayer,updatedElo);
+                       printf("\nPlayer '%s' lose!\nUpdated elo: '%s'", nameCurrentPlayer1,updatedElo1);
+                    }else if (strcmp(winState, "draw") == 0){
+                       printf("the result is draw, no elo updated");
+                 }
+                }
             printf("\nEnd of the game!\n");
 
             sleep(6);
@@ -343,6 +342,7 @@ void *multiplayerGame(void *arg)
 
     return NULL;
 }
+
 char username[100];  // hold name temp when not login
 void *lobby(void *arg)
 {

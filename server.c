@@ -791,6 +791,7 @@ void *handle_client(void *arg)
                                         rooms[j]->game->board[linhaJogada][colunaJogada] = 'O';
                                         rooms[j]->game->playerTurn = rooms[j]->player1->uid;
                                     }
+                                    int wined = 0;
 
                                     for (int iterator = 0; iterator < 3; iterator++)
                                     {
@@ -800,6 +801,7 @@ void *handle_client(void *arg)
                                             ((rooms[j]->game->board[0][iterator] == rooms[j]->game->board[1][iterator]) && (rooms[j]->game->board[1][iterator] == rooms[j]->game->board[2][iterator]) && rooms[j]->game->board[0][iterator] != '-'))
                                         {
                                             rooms[j]->game->gameStatus = 0;
+                                            wined = 1;
                                         }
                                     }
 
@@ -809,10 +811,26 @@ void *handle_client(void *arg)
                                         ((rooms[j]->game->board[0][2] == rooms[j]->game->board[1][1]) && (rooms[j]->game->board[1][1] == rooms[j]->game->board[2][0]) && rooms[j]->game->board[0][2] != '-'))
                                     {
                                         rooms[j]->game->gameStatus = 0;
+                                        wined = 1;
+                                    }
+                                    
+                                    int count_blank = 0;
+                                    for (int i = 0; i < 3; i++){
+                                        for (int k = 0; k < 3; k++)
+                                        {
+                                            if ( (rooms[j]->game->board[i][k] == 'X') || (rooms[j]->game->board[i][k] == 'O')) {
+                                                count_blank++;
+                                            }
+                                        }
                                     }
 
+
+                                    if ( (count_blank == 9) && (wined == 0) ) {
+                                        rooms[j]->game->gameStatus = 2;
+                                        printf("draw checking");
+                                    }
                                     sleep(1);
-                                                                        char append[20]=""; //New variable
+                                                                        char append[20] =""; //New variable
                                                                         char append1[20]=""; //New variable
 
                                     if (rooms[j]->game->gameStatus == 0)
@@ -892,6 +910,28 @@ void *handle_client(void *arg)
                                            send_message(buffer, rooms[j]->player2->uid);
                                         }
 
+
+                                        bzero(buffer, BUFFER_SZ);
+                                        strcpy(buffer, "GAME_OVER|");
+                                        strcat(buffer, "ok");
+                                        send_message(buffer, rooms[j]->player1->uid);
+
+                                        sleep(0.5);
+                                             
+                                        send_message(buffer, rooms[j]->player2->uid);
+                                        break;
+                                    }else if (rooms[j]->game->gameStatus == 2){
+                                        bzero(buffer, BUFFER_SZ);
+                                        strcpy(buffer, strtok(rooms[j]->state, " "));
+                                        strcat(buffer, "|");
+                                                 // save data to file
+                                        if (strstr(rooms[j]->state, "[RANK]"))
+                                        strcat(buffer, "x|x|draw|");
+                                        printf("%s", buffer);
+                                        send_message(buffer, rooms[j]->player1->uid);
+                                        sleep(0.5);
+                                        send_message(buffer, rooms[j]->player2->uid);
+
                                         bzero(buffer, BUFFER_SZ);
                                         strcpy(buffer, "GAME_OVER|");
                                         strcat(buffer, "ok");
@@ -905,6 +945,7 @@ void *handle_client(void *arg)
 
                                     if (rooms[j]->game->playerTurn == rooms[j]->player1->uid)
                                     {
+                                        
                                         bzero(buffer, BUFFER_SZ);
                                         sprintf(buffer, "vez1\n");
                                         send_message(buffer, rooms[j]->player1->uid);
