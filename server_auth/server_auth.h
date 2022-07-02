@@ -50,7 +50,7 @@ void handleLogin(int *isLogin, client_t *cli, char buffer[])
         strcpy(pass, strtok(NULL, "|"));
         printf("password received :%s\n", pass);
 
-        //pthread_mutex_lock(&auth_mutex);
+        pthread_mutex_lock(&auth_mutex);
         for (n = root2; n != NULL; n = n->next)
         {
             if (strcmp(user, n->element.name) == 0 && strcmp(pass, n->element.pass) == 0)
@@ -74,7 +74,7 @@ void handleLogin(int *isLogin, client_t *cli, char buffer[])
                 }
             }
         }
-        
+        pthread_mutex_unlock(&auth_mutex);
 
         if (fl == 0)
         {
@@ -101,7 +101,7 @@ void handleLogin(int *isLogin, client_t *cli, char buffer[])
             // sprintf(buffer, "Login failure\n");
             send_message(buffer, cli->uid);
         }
-       // pthread_mutex_unlock(&auth_mutex);
+     
     }
 }
 
@@ -115,6 +115,7 @@ void handleReg(client_t *cli, char buffer[])
 {
     char user[100];
     char pass[100];
+ 
     char *p = strtok(buffer, "|");
     strcpy(user, strtok(NULL, "|"));
     printf("userName register received :%s\n", user);
@@ -123,8 +124,8 @@ void handleReg(client_t *cli, char buffer[])
     encrypt(pass, KEY);
     int fl = 1;
     userNode *n;
-     
-    //pthread_mutex_lock(&reg_mutex);
+
+    pthread_mutex_lock(&reg_mutex);
     for (n = root2; n != NULL; n = n->next)
     {
         if (strcmp(user, n->element.name) == 0)
@@ -133,7 +134,7 @@ void handleReg(client_t *cli, char buffer[])
             break;
         }
     }
-    
+    pthread_mutex_unlock(&reg_mutex);
     if (fl == 0)
     {
         bzero(buffer, BUFFER_SZ);
@@ -171,7 +172,7 @@ void handleReg(client_t *cli, char buffer[])
         // sprintf(buffer, "Register Successful\n");
         send_message(buffer, cli->uid);
     }
-    //pthread_mutex_lock(&reg_mutex);
+    
 }
 /*
 Handle logout request
@@ -197,7 +198,7 @@ void handleLogOut(int *isLogin, client_t *cli, char buffer[])
         strcpy(us, strtok(NULL, "|"));
 
         *isLogin = 0;
-        cli->userInfo.elo = 0; /*cap nhat elo client*/
+        cli->userInfo.elo = 1200; /*cap nhat elo client*/
         strcpy(cli->userInfo.name, cli->username);
         userNode *n;
         for (n = root2; n != NULL; n = n->next)

@@ -34,9 +34,9 @@ int posicoes[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0
 
 // client structure
 pthread_mutex_t rooms_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 pthread_mutex_t reg_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t auth_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 #include "utils/room.h"
 
 client_t *clients[MAX_CLIENTS];
@@ -67,11 +67,16 @@ void EloRating(int Ra, int Rb, int K, int d)
         secondElo = Rb + K * (0 - Pb);
     }
 
-    else
+    else if(d==0)
     {
         firstElo = Ra + K * (0 - Pa);
         secondElo = Rb + K * (1 - Pb);
+    }else{
+    
+        firstElo = Ra + K * (0.5 - Pa);
+        secondElo = Rb + K * (0.5 - Pb);
     }
+    
     /*fflush(stdout);
     printf( "Ra = %d Rb = %d", Ra,Rb );*/
 }
@@ -87,9 +92,7 @@ void send_message(char *message, int uid)
         {
             if (clients[i]->uid == uid)
             {
-                // ass res.mess res.status
-                // res.status = status;
-                // strcpy(res.message, message);
+               
                 if (write(clients[i]->sockfd, message, strlen(message)) < 0)
                 {
                     printf("ERROR: write to descriptor failed\n");
@@ -125,6 +128,7 @@ void *handle_client(void *arg)
     cli->userInfo.elo = 1200;
     cli->userInfo.status = 0;
     strcpy(cli->userInfo.name, "unknown");
+      
     sprintf(buffer, "> %s has joined\n", cli->userInfo.name);
     printf("%s", buffer);
 
@@ -207,10 +211,30 @@ void *handle_client(void *arg)
         }
         else if (receive == 0 || strcmp(buffer, "exit") == 0)
         {
+
             // TODO: THEM PHAN LOGOUT VAO DAY
+            if (isLogin == 1)
+            {
+                
+                 
+                isLogin = 0;
+                userNode *n;
+                for (n = root2; n != NULL; n = n->next)
+                {
+                    if (strcmp(cli->userInfo.name, n->element.name) == 0)
+                    {
+                        n->element.status = 0;
+                     
+                        saveData1(n->element);
+                        // TODO : luu data vaofile khi logout
+                      
+                    }
+                }
+                traversingList2(root2);
+               
+            }
             sprintf(buffer, "%s has left\n", cli->userInfo.name);
             printf("%s", buffer);
-            // send_message(buffer, cli->uid);
             leave_flag = 1;
         }
         else
