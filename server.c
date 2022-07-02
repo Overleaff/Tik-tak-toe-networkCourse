@@ -44,7 +44,6 @@ room_t *rooms[MAX_ROOMS];
 
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-
 #include "utils/queueManager.h"
 
 int i = 0;
@@ -155,11 +154,10 @@ void *handle_client(void *arg)
                 trim_lf(buffer, strlen(buffer));
                 printf("> client: '%s' has been send '%s' command\n", cli->userInfo.name, buffer);
                 sscanf(buffer, "%[^|]|%i", &command[0], &number);
-                
+
                 if (strstr(buffer, "GUEST"))
                 {
                     handleGuest(name, cli, buffer);
-                   
                 }
                 else if (strstr(buffer, "SIGNUP"))
                 { // TODO:luu vao file

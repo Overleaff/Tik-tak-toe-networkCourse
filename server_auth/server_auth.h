@@ -74,7 +74,9 @@ void handleLogin(int *isLogin, client_t *cli, char buffer[])
                 }
             }
         }
+
         pthread_mutex_unlock(&auth_mutex);
+
 
         if (fl == 0)
         {
@@ -101,7 +103,7 @@ void handleLogin(int *isLogin, client_t *cli, char buffer[])
             // sprintf(buffer, "Login failure\n");
             send_message(buffer, cli->uid);
         }
-     
+
     }
 }
 
@@ -125,7 +127,9 @@ void handleReg(client_t *cli, char buffer[])
     int fl = 1;
     userNode *n;
 
+
     pthread_mutex_lock(&reg_mutex);
+
     for (n = root2; n != NULL; n = n->next)
     {
         if (strcmp(user, n->element.name) == 0)
@@ -134,7 +138,9 @@ void handleReg(client_t *cli, char buffer[])
             break;
         }
     }
+
     pthread_mutex_unlock(&reg_mutex);
+
     if (fl == 0)
     {
         bzero(buffer, BUFFER_SZ);
