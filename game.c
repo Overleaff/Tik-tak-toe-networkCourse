@@ -370,12 +370,12 @@ void *multiplayerGame(void *arg)
                     if (playerTurn == 1)
                     {
                         printf("\nYour  elo: '%s'", updatedElo);
-                        printf("\nPlayer '%s'  elo: '%s'", nameCurrentPlayer1, updatedElo1);
+                        printf("\nPlayer '%s'  elo: '%s'", nameCurrentPlayer, updatedElo1);
                     }
                     else
                     {
                         printf("\nYour  elo: '%s'", updatedElo1);
-                        printf("\nPlayer '%s'  elo: '%s'", nameCurrentPlayer, updatedElo);
+                        printf("\nPlayer '%s'  elo: '%s'", nameCurrentPlayer1, updatedElo);
                     }
                 }
             }

@@ -455,9 +455,12 @@ void handlePlay(int *number, client_t *cli)
                         strcat(buffer, "|");
                         if (strstr(p->element.state, "[RANK]"))
                         {
-                            EloRating(p->element.player1->userInfo.elo, p->element.player2->userInfo.elo, 30, 0);
 
-                            sprintf(append, "%d", secondElo); // put the int into a string
+
+                            EloRating(p->element.player1->userInfo.elo, p->element.player2->userInfo.elo, 30, 2);
+                                
+                            sprintf(append, "%d",secondElo); // put the int into a string
+
                             strcat(append, "|");
                             sprintf(append1, "%d", firstElo);
                             strcat(append, append1);
