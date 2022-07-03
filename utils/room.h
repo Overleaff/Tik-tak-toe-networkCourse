@@ -78,7 +78,7 @@ void displayNode(node *p)
     printf("Room\n");
     printf("Roomid:%d\nRoom type:%-20s\nState:%-100s\n", tmp.uid, tmp.roomType, tmp.state);
     printf("Player\n");*/
-    printf("User 1:%s\nElo:%d",tmp.player1->userInfo.name,tmp.player1->userInfo.elo);
+    printf("User 1:%s\nElo:%d\n",tmp.player1->userInfo.name,tmp.player1->userInfo.elo);
     //printf("User 2:%s\nElo:%d", tmp.player2->userInfo.name, tmp.player2->userInfo.elo);
 }
 

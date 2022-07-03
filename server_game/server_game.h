@@ -81,8 +81,9 @@ void handleCreateRoom(int *isLogin, int *flag, client_t *cli, char buffer[])
             //queue_add_room(room);
 
             insertAtHead(*room);
+            //insertAfterCurrent(*room);
             traversingList(root);
-
+      
             bzero(buffer, BUFFER_SZ);
             bzero(tmp, BUFFER_SZ);
             strcpy(buffer, "ROOM_SUCC|");
@@ -282,13 +283,11 @@ void handleLeave(client_t *cli)
     char tmp[BUFFER_SZ];
     int remove_room = 0;
     int room_number = 0;
-    int count = 0;
     node *p;
     pthread_mutex_lock(&rooms_mutex);
-    printf("HEllo\n");
+    
     for (p = root; p != NULL; p = p->next)
     {
-        count += 1;
         if (p != NULL)
         {
             if (p->element.player1->uid == cli->uid)
@@ -311,13 +310,14 @@ void handleLeave(client_t *cli)
                 }
                 else
                 { // ko co ai
+                    
                     // TODO : xoa room 1 trc roi ms xoa dc room 2
                     remove_room = 1;
                     room_number = p->element.uid;
+                
                 }
 
                 bzero(buffer, BUFFER_SZ);
-
                 bzero(tmp, BUFFER_SZ);
                 strcpy(buffer, "LEAVE_ROOM|");
                 sprintf(tmp, "you left the room %i\n", p->element.uid);
@@ -360,11 +360,9 @@ void handleLeave(client_t *cli)
     {
         printf("Room delete:%d\n", room_number);
         //queue_remove_room(room_number);
-        printf("Before\n");
-        traversingList(root);
+          
         deleteAtposi(room_number);
-        printf("After\n");
-        traversingList(root);
+        
         roomUid *= 2; // OR  roomUid --
     }
 }

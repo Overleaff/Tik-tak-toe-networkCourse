@@ -478,7 +478,7 @@ void menu()
     printf("\t -list\t\t\t  List all tic-tac-toe rooms\n");
     printf("\t -create\t\t   Normal Room\n");
     printf("\t -create rank\t\t  Ranked room\n");
-    printf("\t -join {room number}\t  Join in one tic-tac-toe room\n");
+    printf("\t -join\t\t  Join in one tic-tac-toe room\n");
     printf("\t -leave\t\t\t  Back of the one tic-tac-toe room\n");
     printf("\t -start\t\t\t  Starts one tic-tac-toe game\n");
     printf("\t -login\t\t\t  Logged in to save your account\n");
@@ -491,7 +491,7 @@ void logged_menu()
     printf("\t -list\t\t\t  List all tic-tac-toe rooms\n");
     printf("\t -create\t\t   Normal Room\n");
     printf("\t -create rank\t\t  Ranked room\n");
-    printf("\t -join {room number}\t  Join in one tic-tac-toe room\n");
+    printf("\t -join\t\t  Join in one tic-tac-toe room\n");
     printf("\t -leave\t\t\t  Back of the one tic-tac-toe room\n");
     printf("\t -start\t\t\t  Starts one tic-tac-toe game\n");
     printf("\t -logout\t\t  Starts one tic-tac-toe game\n\n");
