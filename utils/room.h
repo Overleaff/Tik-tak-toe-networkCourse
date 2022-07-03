@@ -197,16 +197,32 @@ node *list_reverse(node *root)
 void deleteAtposi(int roomNumber)
 {   printf("ROOM:%d\n",roomNumber);
     int pos = -1;
-    node *p;
+    node *p=root;
+    int index = 0;
     int found = 0;
     pthread_mutex_lock(&rooms_mutex);
+   
+ 
+    // traverse till then end of the linked list
+    while (p != NULL)
+    {
+        pos++;
+        if (p->element.uid== roomNumber)
+        {
+            found=1;
+            break;
+        }
+        p = p->next;
+      
+    }
+    /*
     for(p=root;p!=NULL;p++){
         pos = pos + 1;
         if(p->element.uid == roomNumber){
             found = 1;
             break;
         }
-    }
+    }*/
     if(found==0){
         pos = -1 ;
     }
@@ -228,6 +244,7 @@ void deleteAtposi(int roomNumber)
         return;
     }
     deletecur();
+   
     pthread_mutex_unlock(&rooms_mutex);
 }
 
