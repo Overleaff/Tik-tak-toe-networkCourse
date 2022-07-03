@@ -10,7 +10,8 @@ void handleCreateRoom(int *isLogin, int *flag, client_t *cli, char buffer[])
 {
 
     char tmp[BUFFER_SZ];
-    node *p;
+    node *p = (node *)malloc(sizeof(node));
+    
     if (strcmp(buffer, "CREATE RANK") == 0 && *isLogin == 0)
     {
         bzero(buffer, BUFFER_SZ);
@@ -81,8 +82,9 @@ void handleCreateRoom(int *isLogin, int *flag, client_t *cli, char buffer[])
             //queue_add_room(room);
 
             insertAtHead(*room);
+            //insertAfterCurrent(*room);
             traversingList(root);
-
+      
             bzero(buffer, BUFFER_SZ);
             bzero(tmp, BUFFER_SZ);
             strcpy(buffer, "ROOM_SUCC|");
@@ -101,7 +103,8 @@ void handleJoin(int *isLogin, int *number, client_t *cli)
     int researched = 0;
     int already = 0;
     pthread_mutex_lock(&rooms_mutex);
-    node *p;
+    node *p = (node *)malloc(sizeof(node));
+    
     for (p = root; p != NULL; p = p->next)
     {
         if (p != NULL)
@@ -282,13 +285,13 @@ void handleLeave(client_t *cli)
     char tmp[BUFFER_SZ];
     int remove_room = 0;
     int room_number = 0;
-    int count = 0;
-    node *p;
+    node *p = (node *)malloc(sizeof(node));
+    
+
     pthread_mutex_lock(&rooms_mutex);
-    printf("HEllo\n");
+    
     for (p = root; p != NULL; p = p->next)
     {
-        count += 1;
         if (p != NULL)
         {
             if (p->element.player1->uid == cli->uid)
@@ -311,13 +314,14 @@ void handleLeave(client_t *cli)
                 }
                 else
                 { // ko co ai
+                    
                     // TODO : xoa room 1 trc roi ms xoa dc room 2
                     remove_room = 1;
                     room_number = p->element.uid;
+                
                 }
 
                 bzero(buffer, BUFFER_SZ);
-
                 bzero(tmp, BUFFER_SZ);
                 strcpy(buffer, "LEAVE_ROOM|");
                 sprintf(tmp, "you left the room %i\n", p->element.uid);
@@ -325,6 +329,8 @@ void handleLeave(client_t *cli)
                 // sprintf(buffer, "you left the room %i\n", rooms[i]->uid);
                 send_message(buffer, cli->uid);
                 break;
+            }else  if (p->element.player2 ==0){
+                continue;
             }
             else if (p->element.player2->uid == cli->uid)
             {
@@ -350,7 +356,8 @@ void handleLeave(client_t *cli)
                 // sprintf(buffer, "you left the room %i\n", rooms[i]->uid);
                 send_message(buffer, cli->uid);
                 break;
-            }
+                
+            }  //else continue;
         }
     }
 
@@ -360,11 +367,9 @@ void handleLeave(client_t *cli)
     {
         printf("Room delete:%d\n", room_number);
         //queue_remove_room(room_number);
-        printf("Before\n");
-        traversingList(root);
+          
         deleteAtposi(room_number);
-        printf("After\n");
-        traversingList(root);
+        
         roomUid *= 2; // OR  roomUid --
     }
 }
@@ -373,14 +378,17 @@ void handlePlay(int *number, client_t *cli)
 {
     char buffer[BUFFER_SZ];
     char tmp[BUFFER_SZ];
-    node *p;
+    node *p = (node *)malloc(sizeof(node));
+    
     pthread_mutex_lock(&rooms_mutex);
 
     for (p = root; p != NULL; p = p->next)
     {
 
         if (p != NULL)
-        {
+        {   if(p->element.player2==0){
+              continue;
+             }
             if (p->element.player1->uid == cli->uid || p->element.player2->uid == cli->uid)
             {
                 if (p->element.game->gameStatus == 0)
@@ -632,7 +640,7 @@ void handlePlay(int *number, client_t *cli)
                     // sprintf(buffer, "vez1\n");
                     send_message(buffer, p->element.player2->uid);
                 }
-            }
+            } else continue;
             // break;
         }
     }
@@ -647,14 +655,14 @@ void handleStart(client_t *cli)
     int startgame = 0;
     room_t *room_game;
 
-    node *p;
+    node *p = (node *)malloc(sizeof(node));
     pthread_mutex_lock(&rooms_mutex);
 
     for (p = root; p != NULL; p = p->next)
     {
 
         if (p != NULL)
-        {
+        {   
             if (p->element.player1->uid == cli->uid)
             {
                 if (p->element.player2 != 0)
@@ -672,6 +680,10 @@ void handleStart(client_t *cli)
                 // sprintf(buffer, "2 players are required to start the game\n");
                 send_message(buffer, cli->uid);
                 break;
+            }
+            else if (p->element.player2==0)
+            {
+                continue;
             }
             else if (p->element.player2->uid == cli->uid)
             {
