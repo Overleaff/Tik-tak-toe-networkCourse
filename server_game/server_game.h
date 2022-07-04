@@ -381,14 +381,13 @@ void handlePlay(int *number, client_t *cli)
     node *p = (node *)malloc(sizeof(node));
     
     pthread_mutex_lock(&rooms_mutex);
-
     for (p = root; p != NULL; p = p->next)
     {
-
-        if (p != NULL)
-        {   if(p->element.player2==0){
+       if (p != NULL)
+        {   
+            if(p->element.player2==0){
               continue;
-             }
+            }
             if (p->element.player1->uid == cli->uid || p->element.player2->uid == cli->uid)
             {
                 if (p->element.game->gameStatus == 0)
@@ -465,7 +464,7 @@ void handlePlay(int *number, client_t *cli)
                         {
 
 
-                            EloRating(p->element.player1->userInfo.elo, p->element.player2->userInfo.elo, 30, 2);
+                            EloRating(p->element.player1->userInfo.elo, p->element.player2->userInfo.elo, 30, 0);
                                 
                             sprintf(append, "%d",secondElo); // put the int into a string
 
@@ -569,7 +568,7 @@ void handlePlay(int *number, client_t *cli)
                     if (strstr(p->element.state, "[RANK]"))
                     {
 
-                        EloRating(p->element.player1->userInfo.elo, p->element.player2->userInfo.elo, 30, 1);
+                        EloRating(p->element.player1->userInfo.elo, p->element.player2->userInfo.elo, 30, 2);
 
                         sprintf(append, "%d", secondElo); // put the int into a string
                         strcat(append, "|");

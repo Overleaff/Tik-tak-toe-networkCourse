@@ -169,7 +169,7 @@ void handleReg(client_t *cli, char buffer[])
         sprintf(tmp, "%d\n", ele.status);
         strcat(str, tmp);
         append(str);
-
+         
         insertAtHead2(ele);
         traversingList2(root2);
         bzero(buffer, BUFFER_SZ);
