@@ -1,10 +1,8 @@
-CC = gcc
-CFLAGS = -Wall -g
-
-lab3: 
-	${CC} ${CFLAGS} client.c -o client
-	${CC} ${CFLAGS} server.c -o server
+compile:
+	gcc -Wall -g3 -fsanitize=address -pthread -lm server.c -o server
+	gcc -Wall -g3 -fsanitize=address -pthread -lm game.c -o game
 
 clean: 
-	rm -f server client 
+	rm -f server client game tu
 	rm -r *dSYM
+	rm -r .vscode

@@ -1,365 +1,341 @@
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <errno.h>
+#include <signal.h>
 #include <unistd.h>
-#include <sys/types.h>
+
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
-int player_count = 0;
-pthread_mutex_t mutexcount;
+#include <pthread.h>
+#include <sys/types.h>
+#include "utils/customSTD.h"
+#include <math.h>
 
-void error(const char *msg)
+pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
+#include "utils/user.h"
+#include "authenticate.h"
+
+#define MAX_CLIENTS 10
+#define MAX_ROOMS 5
+#define BUFFER_SZ 2048
+#define NAME_LEN 100
+#define KEY 0XAED
+// Symmetric 1 key for encrypt and decrypt
+static _Atomic unsigned int cli_count = 0;
+static int uid = 10;
+static int roomUid = 1;
+int firstElo, secondElo;
+
+int posicoes[9][2] = {{2, 0}, {2, 1}, {2, 2}, {1, 0}, {1, 1}, {1, 2}, {0, 0}, {0, 1}, {0, 2}};
+
+// client structure
+pthread_mutex_t rooms_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t reg_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t auth_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+#include "utils/room.h"
+
+client_t *clients[MAX_CLIENTS];
+room_t *rooms[MAX_ROOMS];
+
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+#include "utils/queueManager.h"
+
+int i = 0;
+
+float Probability(int rating1, int rating2)
 {
-    perror(msg);
-    pthread_exit(NULL);
+    return 1.0 * 1.0 / (1 + 1.0 * pow(10, 1.0 * (rating1 - rating2) / 400));
 }
 
-void write_client_msg(int cli_sockfd, char *msg)
+void EloRating(int Ra, int Rb, int K, int d)
 {
-    int n = write(cli_sockfd, msg, strlen(msg));
-    if (n < 0)
-        error("ERROR writing msg to client socket");
-}
+    float Pb = Probability(Ra, Rb);
 
-void write_client_int(int cli_sockfd, int msg)
-{
-    int n = write(cli_sockfd, &msg, sizeof(int));
-    if (n < 0)
-        error("ERROR writing int to client socket");
-}
+    float Pa = Probability(Rb, Ra);
 
-void write_clients_msg(int *cli_sockfd, char *msg)
-{
-    write_client_msg(cli_sockfd[0], msg);
-    write_client_msg(cli_sockfd[1], msg);
-}
-
-void write_clients_int(int *cli_sockfd, int msg)
-{
-    write_client_int(cli_sockfd[0], msg);
-    write_client_int(cli_sockfd[1], msg);
-}
-
-int setup_listener(int portno)
-{
-    int sockfd;
-    struct sockaddr_in serv_addr;
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-        error("ERROR opening listener socket.");
-
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(portno);
-
-    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-        error("ERROR binding listener socket.");
-
-    printf("[DEBUG] Listener set.\n");
-
-    return sockfd;
-}
-int recv_int(int cli_sockfd)
-{
-    int msg = 0;
-    int n = read(cli_sockfd, &msg, sizeof(int));
-
-    if (n < 0 || n != sizeof(int))
-        return -1;
-
-    printf("[DEBUG] Received int: %d\n", msg);
-
-    return msg;
-}
-
-void get_clients(int lis_sockfd, int *cli_sockfd)
-{
-    socklen_t clilen;
-    struct sockaddr_in serv_addr, cli_addr;
-
-    printf("[DEBUG] Listening for clients...\n");
-
-    int num_conn = 0;
-    while (num_conn < 2)
+    int a, b;
+    if (d == 1)
     {
-        listen(lis_sockfd, 253 - player_count);
+        firstElo = Ra + K * (1 - Pa);
+        secondElo = Rb + K * (0 - Pb);
+    }
 
-        memset(&cli_addr, 0, sizeof(cli_addr));
+    else if(d==0)
+    {
+        firstElo = Ra + K * (0 - Pa);
+        secondElo = Rb + K * (1 - Pb);
+    }else{
+    
+        firstElo = Ra + K * (0.5 - Pa);
+        secondElo = Rb + K * (0.5 - Pb);
+    }
+    
+    /*fflush(stdout);
+    printf( "Ra = %d Rb = %d", Ra,Rb );*/
+}
 
-        clilen = sizeof(cli_addr);
+void send_message(char *message, int uid)
+{
 
-        cli_sockfd[num_conn] = accept(lis_sockfd, (struct sockaddr *)&cli_addr, &clilen);
+    pthread_mutex_lock(&clients_mutex);
 
-        if (cli_sockfd[num_conn] < 0)
-            error("ERROR accepting a connection from a client.");
-
-        printf("[DEBUG] Accepted connection from client %d\n", num_conn);
-
-        write(cli_sockfd[num_conn], &num_conn, sizeof(int));
-
-        printf("[DEBUG] Sent client %d it's ID.\n", num_conn);
-
-        pthread_mutex_lock(&mutexcount);
-        player_count++;
-        printf("Number of players is now %d.\n", player_count);
-        pthread_mutex_unlock(&mutexcount);
-
-        if (num_conn == 0)
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if (clients[i])
         {
-            write_client_msg(cli_sockfd[0], "HLD");
-
-            printf("[DEBUG] Told client 0 to hold.\n");
-        }
-
-        num_conn++;
-    }
-}
-
-int get_player_move(int cli_sockfd)
-{
-
-    printf("[DEBUG] Getting player move...\n");
-
-    write_client_msg(cli_sockfd, "TRN");
-
-    return recv_int(cli_sockfd);
-}
-
-int check_move(char board[][3], int move, int player_id)
-{
-    if ((move == 9) || (board[move / 3][move % 3] == ' '))
-    {
-
-        printf("[DEBUG] Player %d's move was valid.\n", player_id);
-
-        return 1;
-    }
-    else
-    {
-        printf("[DEBUG] Player %d's move was invalid.\n", player_id);
-
-        return 0;
-    }
-}
-
-void update_board(char board[][3], int move, int player_id)
-{
-    board[move / 3][move % 3] = player_id ? 'X' : 'O';
-
-    printf("[DEBUG] Board updated.\n");
-}
-
-void draw_board(char board[][3])
-{
-    printf(" %c | %c | %c \n", board[0][0], board[0][1], board[0][2]);
-    printf("-----------\n");
-    printf(" %c | %c | %c \n", board[1][0], board[1][1], board[1][2]);
-    printf("-----------\n");
-    printf(" %c | %c | %c \n", board[2][0], board[2][1], board[2][2]);
-}
-
-void send_update(int *cli_sockfd, int move, int player_id)
-{
-
-    printf("[DEBUG] Sending update...\n");
-
-    write_clients_msg(cli_sockfd, "UPD");
-
-    write_clients_int(cli_sockfd, player_id);
-
-    write_clients_int(cli_sockfd, move);
-
-    printf("[DEBUG] Update sent.\n");
-}
-
-void send_player_count(int cli_sockfd)
-{
-    write_client_msg(cli_sockfd, "CNT");
-    write_client_int(cli_sockfd, player_count);
-
-    printf("[DEBUG] Player Count Sent.\n");
-}
-
-int check_board(char board[][3], int last_move)
-{
-
-    printf("[DEBUG] Checking for a winner...\n");
-
-    int row = last_move / 3;
-    int col = last_move % 3;
-
-    if (board[row][0] == board[row][1] && board[row][1] == board[row][2])
-    {
-
-        printf("[DEBUG] Win by row %d.\n", row);
-
-        return 1;
-    }
-    else if (board[0][col] == board[1][col] && board[1][col] == board[2][col])
-    {
-
-        printf("[DEBUG] Win by column %d.\n", col);
-
-        return 1;
-    }
-    else if (!(last_move % 2))
-    {
-        if ((last_move == 0 || last_move == 4 || last_move == 8) && (board[1][1] == board[0][0] && board[1][1] == board[2][2]))
-        {
-            printf("[DEBUG] Win by backslash diagonal.\n");
-
-            return 1;
-        }
-        if ((last_move == 2 || last_move == 4 || last_move == 6) && (board[1][1] == board[0][2] && board[1][1] == board[2][0]))
-        {
-            printf("[DEBUG] Win by frontslash diagonal.\n");
-
-            return 1;
-        }
-    }
-
-    printf("[DEBUG] No winner, yet.\n");
-
-    return 0;
-}
-
-void *run_game(void *thread_data)
-{
-    int *cli_sockfd = (int *)thread_data;
-    char board[3][3] = {{' ', ' ', ' '},
-                        {' ', ' ', ' '},
-                        {' ', ' ', ' '}};
-
-    printf("Game on!\n");
-
-    write_clients_msg(cli_sockfd, "SRT");
-
-    printf("[DEBUG] Sent start message.\n");
-
-    draw_board(board);
-
-    int prev_player_turn = 1;
-    int player_turn = 0;
-    int game_over = 0;
-    int turn_count = 0;
-    while (!game_over)
-    {
-
-        if (prev_player_turn != player_turn)
-            write_client_msg(cli_sockfd[(player_turn + 1) % 2], "WAT");
-
-        int valid = 0;
-        int move = 0;
-        while (!valid)
-        {
-            move = get_player_move(cli_sockfd[player_turn]);
-            if (move == -1)
-                break;
-            printf("Player %d played position %d\n", player_turn, move);
-
-            valid = check_move(board, move, player_turn);
-            if (!valid)
+            if (clients[i]->uid == uid)
             {
-                printf("Move was invalid. Let's try this again...\n");
-                write_client_msg(cli_sockfd[player_turn], "INV");
+               
+                if (write(clients[i]->sockfd, message, strlen(message)) < 0)
+                {
+                    printf("ERROR: write to descriptor failed\n");
+                    break;
+                }
             }
         }
+    }
 
-        if (move == -1)
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+#include "server_auth/server_auth.h"
+#include "server_game/server_game.h"
+void *handle_client(void *arg)
+{
+    char buffer[BUFFER_SZ];
+    char command[BUFFER_SZ];
+    char tmp[BUFFER_SZ];
+    int number;
+    char name[NAME_LEN];
+    int leave_flag = 0;
+    int flag = 0;
+    int isRank = 0;
+    int isLogin = 0; /* logout then isLogin=0 */
+    client_t *cli = (client_t *)arg;
+    char user[100];
+    char pass[100];
+
+    // name nhan tin hieu
+    recv(cli->sockfd, name, NAME_LEN, 0);
+
+    cli->userInfo.elo = 1200;
+    cli->userInfo.status = 0;
+    strcpy(cli->userInfo.name, "unknown");
+      
+    sprintf(buffer, "> %s has joined\n", cli->userInfo.name);
+    printf("%s", buffer);
+
+    bzero(buffer, BUFFER_SZ);
+    strcpy(buffer, "SELECT_MODE|");
+    strcat(buffer, "ok1");
+    send_message(buffer, cli->uid);
+
+    bzero(buffer, BUFFER_SZ);
+    char *p;
+    while (leave_flag == 0)
+    {
+        command[0] = '\x00';
+        number = 0;
+
+        int receive = recv(cli->sockfd, buffer, BUFFER_SZ, 0);
+
+        if (receive > 0)
         {
-            printf("Player disconnected.\n");
-            break;
+            if (strlen(buffer) > 0)
+            {
+
+                // send_message(buffer, cli->uid);
+                trim_lf(buffer, strlen(buffer));
+                printf("> client: '%s' has been send '%s' command\n", cli->userInfo.name, buffer);
+                sscanf(buffer, "%[^|]|%i", &command[0], &number);
+
+                if (strstr(buffer, "GUEST"))
+                {
+                    handleGuest(name, cli, buffer);
+                }
+                else if (strstr(buffer, "SIGNUP"))
+                { // TODO:luu vao file
+                    handleReg(cli, buffer);
+                }
+                else if (strstr(buffer, "LOGOUT"))
+                {
+                    handleLogOut(&isLogin, cli, buffer);
+                }
+                else if (strstr(buffer, "LOGIN"))
+                {
+                    handleLogin(&isLogin, cli, buffer);
+                }
+
+                else if (strcmp(buffer, "CREATE") == 0 || strcmp(buffer, "CREATE RANK") == 0)
+                {
+                    handleCreateRoom(&isLogin, &flag, cli, buffer);
+                }
+
+                // random
+                else if (strcmp(command, "JOIN") == 0)
+                {
+                    handleJoin(&isLogin, &number, cli);
+                }
+                else if (strcmp(command, "LIST") == 0)
+                {
+                    handleListRooms(cli);
+                }
+                else if (strcmp(command, "LEAVE") == 0)
+                {
+                    handleLeave(cli);
+                }
+                else if (strcmp(command, "START") == 0)
+                {
+                    handleStart(cli);
+                }
+                else if (strcmp(command, "PLAY") == 0)
+                {
+                    handlePlay(&number, cli);
+                }
+                else
+                {
+                    bzero(buffer, BUFFER_SZ);
+                    strcpy(buffer, "INVALID_CMD|");
+                    strcat(buffer, "Invalid command\n");
+                    send_message(buffer, cli->uid);
+                }
+            }
         }
-        else if (move == 9)
+        else if (receive == 0 || strcmp(buffer, "exit") == 0)
         {
-            prev_player_turn = player_turn;
-            send_player_count(cli_sockfd[player_turn]);
+
+            // TODO: THEM PHAN LOGOUT VAO DAY
+            if (isLogin == 1)
+            {
+                
+                 
+                isLogin = 0;
+                userNode *n;
+                for (n = root2; n != NULL; n = n->next)
+                {
+                    if (strcmp(cli->userInfo.name, n->element.name) == 0)
+                    {
+                        n->element.status = 0;
+                     
+                        saveData1(n->element);
+                        // TODO : luu data vaofile khi logout
+                      
+                    }
+                }
+                traversingList2(root2);
+               
+            }
+            sprintf(buffer, "%s has left\n", cli->userInfo.name);
+            printf("%s", buffer);
+            leave_flag = 1;
         }
         else
         {
-            update_board(board, move, player_turn);
-            send_update(cli_sockfd, move, player_turn);
-
-            draw_board(board);
-
-            game_over = check_board(board, move);
-
-            if (game_over == 1)
-            {
-                write_client_msg(cli_sockfd[player_turn], "WIN");
-                write_client_msg(cli_sockfd[(player_turn + 1) % 2], "LSE");
-                printf("Player %d won.\n", player_turn);
-            }
-            else if (turn_count == 8)
-            {
-                printf("Draw.\n");
-                write_clients_msg(cli_sockfd, "DRW");
-                game_over = 1;
-            }
-
-            prev_player_turn = player_turn;
-            player_turn = (player_turn + 1) % 2;
-            turn_count++;
+            printf("ERROR: -1\n");
+            leave_flag = 1;
         }
+
+        bzero(buffer, BUFFER_SZ);
     }
 
-    printf("Game over.\n");
+    bzero(buffer, BUFFER_SZ);
+    strcpy(buffer, "EXIT|");
+    strcat(buffer, "bye");
+    send_message(buffer, cli->uid);
 
-    close(cli_sockfd[0]);
-    close(cli_sockfd[1]);
+    close(cli->sockfd);
+    queue_remove_client(cli->uid);
+    free(cli);
+    cli_count--;
+    pthread_detach(pthread_self());
 
-    pthread_mutex_lock(&mutexcount);
-    player_count--;
-    printf("Number of players is now %d.", player_count);
-    player_count--;
-    printf("Number of players is now %d.", player_count);
-    pthread_mutex_unlock(&mutexcount);
-
-    free(cli_sockfd);
-
-    pthread_exit(NULL);
+    return NULL;
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char **argv)
 {
-    if (argc < 2)
+    if (argc != 2)
     {
-        fprintf(stderr, "ERROR, no port provided\n");
-        exit(1);
+        printf("Usage: %s <port>\n", argv[0]);
+        return EXIT_FAILURE;
     }
 
-    int lis_sockfd = setup_listener(atoi(argv[1]));
-    pthread_mutex_init(&mutexcount, NULL);
+    // char *ip = "127.0.0.1";
+    int port = atoi(argv[1]);
 
+    int option = 1;
+    int listenfd = 0, connfd = 0;
+    struct sockaddr_in serv_addr;
+    struct sockaddr_in cli_addr;
+    pthread_t tid;
+
+    // Socket settings
+    listenfd = socket(AF_INET, SOCK_STREAM, 0);
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv_addr.sin_port = htons(port);
+
+    // Signals
+    signal(SIGPIPE, SIG_IGN);
+    /*
+        if (setsockopt(listenfd, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR), (char *)&option, sizeof(option)) < 0)
+        {
+            printf("ERROR: setsockopt\n");
+            return EXIT_FAILURE;
+        }*/
+
+    if (bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+    {
+        printf("Error bind\n");
+        return EXIT_FAILURE;
+    }
+
+    // listen
+    if (listen(listenfd, 10) < 0)
+    {
+        printf("ERROR: listen\n");
+        return EXIT_FAILURE;
+    }
+
+    flashScreen();
+
+    printf("############################################");
+    printf("\n# Tic-Tac-Toe Server running on port: %i #", port);
+    printf("\n############################################\n\n");
+    importTextFile("database.txt");
+    traversingList2(root2);
     while (1)
     {
-        if (player_count <= 252)
+        socklen_t clilen = sizeof(cli_addr);
+        connfd = accept(listenfd, (struct sockaddr *)&cli_addr, &clilen);
+
+        // check dor max clients
+        if ((cli_count + 1) == MAX_CLIENTS)
         {
-            int *cli_sockfd = (int *)malloc(2 * sizeof(int));
-            memset(cli_sockfd, 0, 2 * sizeof(int));
-
-            get_clients(lis_sockfd, cli_sockfd);
-
-            printf("[DEBUG] Starting new game thread...\n");
-
-            pthread_t thread;
-            int result = pthread_create(&thread, NULL, run_game, (void *)cli_sockfd);
-            if (result)
-            {
-                printf("Thread creation failed with return code %d\n", result);
-                exit(-1);
-            }
-
-            printf("[DEBUG] New game thread started.\n");
+            printf("Maximun of clients are connected, Connection rejected");
+            close(connfd);
+            continue;
         }
+        // printf("New connection:%d\n", connfd);
+        //  clients settings
+        client_t *cli = (client_t *)malloc(sizeof(client_t));
+        cli->address = cli_addr;
+        cli->sockfd = connfd;
+        cli->uid = uid++;
+        printf("Uid:%d\n", cli->uid);
+        // add client to queue
+        queue_add_client(cli);
+        pthread_create(&tid, NULL, &handle_client, (void *)cli);
+
+        // reduce CPU usage
+        sleep(1);
     }
 
-    close(lis_sockfd);
-
-    pthread_mutex_destroy(&mutexcount);
-    pthread_exit(NULL);
+    return EXIT_SUCCESS;
 }
