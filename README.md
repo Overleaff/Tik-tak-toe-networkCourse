@@ -1,15 +1,29 @@
-2 che do
-guest
-login
-
-1)
-chon : "guest"
-neu muon dang nhap chon command: "login"
-chi dung dc command : "create"
-neu muon : "create rank" (thi phai login)
-2)chon : "login"
-
-//logout : se la "newmember"
-
-//choi nhieu nguoi
-// luu vao file
+# Network Programm Final Project
+## Group 5
+### Features
+- Authentication
+- Normal and rank mode
+### Installation
+#### Multi-client on one computer
+```
+make
+```
+```
+./server {port}
+```
+```
+./game {IP_ADDRESS} {PORT}
+```
+#### Multi-client on multi-computer (connect to the same network)
+```
+sudo ufw allow {PORT}
+```
+```
+make
+```
+```
+./server {port}
+```
+```
+./game {IP_ADDRESS} {PORT}
+```
