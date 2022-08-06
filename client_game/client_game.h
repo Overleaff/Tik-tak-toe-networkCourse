@@ -21,11 +21,9 @@ int digit_check(char key[])
 void joinRoom(char buffer[])
 {
     char roomId[13];
-
     do
     {
         printf("Enter room id:");
-
         scanf("%s", roomId);
         if (!digit_check(roomId))
         {
@@ -33,7 +31,6 @@ void joinRoom(char buffer[])
         }
     } while (!digit_check(roomId));
     // printf("Number is accepted, input finished!\n");
-
     strcat(buffer, "|");
     strcat(buffer, roomId);
 }

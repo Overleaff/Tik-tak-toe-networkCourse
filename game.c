@@ -230,7 +230,7 @@ void *multiplayerGame(void *arg)
                         if (valid_play == 1)
                         {
                             makeMove(positionPlay, message);
-                            //sprintf(message, "PLAY|%i\n", positionPlay);
+                            // sprintf(message, "PLAY|%i\n", positionPlay);
                             send(sockfd, message, strlen(message), 0);
                             bzero(message, BUFFER_SZ);
                         }

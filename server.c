@@ -66,16 +66,18 @@ void EloRating(int Ra, int Rb, int K, int d)
         secondElo = Rb + K * (0 - Pb);
     }
 
-    else if(d==0)
+    else if (d == 0)
     {
         firstElo = Ra + K * (0 - Pa);
         secondElo = Rb + K * (1 - Pb);
-    }else{
-    
+    }
+    else
+    {
+
         firstElo = Ra + K * (0.5 - Pa);
         secondElo = Rb + K * (0.5 - Pb);
     }
-    
+
     /*fflush(stdout);
     printf( "Ra = %d Rb = %d", Ra,Rb );*/
 }
@@ -91,7 +93,7 @@ void send_message(char *message, int uid)
         {
             if (clients[i]->uid == uid)
             {
-               
+
                 if (write(clients[i]->sockfd, message, strlen(message)) < 0)
                 {
                     printf("ERROR: write to descriptor failed\n");
@@ -100,7 +102,6 @@ void send_message(char *message, int uid)
             }
         }
     }
-
     pthread_mutex_unlock(&clients_mutex);
 }
 
@@ -127,7 +128,7 @@ void *handle_client(void *arg)
     cli->userInfo.elo = 1200;
     cli->userInfo.status = 0;
     strcpy(cli->userInfo.name, "unknown");
-      
+
     sprintf(buffer, "> %s has joined\n", cli->userInfo.name);
     printf("%s", buffer);
 
@@ -213,8 +214,7 @@ void *handle_client(void *arg)
             // TODO: THEM PHAN LOGOUT VAO DAY
             if (isLogin == 1)
             {
-                
-                 
+
                 isLogin = 0;
                 userNode *n;
                 for (n = root2; n != NULL; n = n->next)
@@ -222,14 +222,12 @@ void *handle_client(void *arg)
                     if (strcmp(cli->userInfo.name, n->element.name) == 0)
                     {
                         n->element.status = 0;
-                     
+
                         saveData1(n->element);
                         // TODO : luu data vaofile khi logout
-                      
                     }
                 }
                 traversingList2(root2);
-               
             }
             sprintf(buffer, "%s has left\n", cli->userInfo.name);
             printf("%s", buffer);
@@ -279,6 +277,7 @@ int main(int argc, char **argv)
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    // serv_addr.sin_addr.s_addr = inet_addr("172.17.8.219");
     serv_addr.sin_port = htons(port);
 
     // Signals
@@ -322,7 +321,7 @@ int main(int argc, char **argv)
             close(connfd);
             continue;
         }
-        // printf("New connection:%d\n", connfd);
+       
         //  clients settings
         client_t *cli = (client_t *)malloc(sizeof(client_t));
         cli->address = cli_addr;

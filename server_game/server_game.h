@@ -407,18 +407,18 @@ void handlePlay(int *number, client_t *cli)
                 bzero(buffer, BUFFER_SZ);
                 sprintf(buffer, "%i", *number);
 
-                int linhaJogada = posicoes[*number - 1][0];
-                int colunaJogada = posicoes[*number - 1][1];
+                int line = posicoes[*number - 1][0];
+                int col = posicoes[*number - 1][1];
                 if (p->element.game->playerTurn == p->element.player1->uid)
                 {
                     send_message(buffer, p->element.player2->uid);
-                    p->element.game->board[linhaJogada][colunaJogada] = 'X';
+                    p->element.game->board[line][col] = 'X';
                     p->element.game->playerTurn = p->element.player2->uid;
                 }
                 else if (p->element.game->playerTurn == p->element.player2->uid)
                 {
                     send_message(buffer, p->element.player1->uid);
-                    p->element.game->board[linhaJogada][colunaJogada] = 'O';
+                    p->element.game->board[line][col] = 'O';
                     p->element.game->playerTurn = p->element.player1->uid;
                 }
 

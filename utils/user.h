@@ -290,7 +290,7 @@ void saveData1(elementtype ele){
     char buffer[1000];
     char newline[1000];
     int count;
-    pthread_mutex_lock(&file_mutex);
+    //pthread_mutex_lock(&file_mutex);
     // update file path
     int line = getLine2("database.txt", ele.name);
     /* Remove extra new line character from stdin */
@@ -348,7 +348,7 @@ void saveData1(elementtype ele){
 
     /* Rename temporary file as original file */
     rename("replace.tmp", "database.txt");
-    pthread_mutex_unlock(&file_mutex);
+    //pthread_mutex_unlock(&file_mutex);
     printf("\nSuccessfully replaced '%d' line with '%s'.", line, newline);
 }
 
@@ -365,6 +365,8 @@ char * getNumberActive(char *yourName){
     }
     return NULL;
 } */
+
+// reg va save data1
 void append(char *str)
 {
     // append to last line
@@ -377,14 +379,14 @@ void append(char *str)
     printf("------------------------------------------------------\n");
     printf(" Input the file name to be opened : ");
     
-     pthread_mutex_lock(&file_mutex);
+   // pthread_mutex_lock(&file_mutex);
     fptr3 = fopen("database.txt", "a");
     printf(" Input the number of lines to be written : ");
     // scanf("%d", &n);
     printf(" The lines are : \n");
     fprintf(fptr3, "%s", str);
     fclose(fptr3);
-    pthread_mutex_unlock(&file_mutex);
+    //pthread_mutex_unlock(&file_mutex);
 }
 
 void saveData(char *filename, elementtype user)
